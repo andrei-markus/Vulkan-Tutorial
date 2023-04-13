@@ -1,35 +1,36 @@
 #include "graphics.hpp"
 
 #include <SDL.h>
+#include <Vulkan/vulkan.h>
 
-graphics::graphics() {
+namespace {
+
+class graphicsState {
+  public:
+    VkExtent2D windowExtent{1280, 720};
+    SDL_Window* window;
+
+    ~graphicsState() {
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+    }
+};
+
+graphicsState context;
+
+} // namespace
+
+namespace graphics {
+void init() {
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
 
-    _window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED,
-                               SDL_WINDOWPOS_UNDEFINED, _windowExtent.width,
-                               _windowExtent.height, SDL_WINDOW_VULKAN);
+    context.window =
+        SDL_CreateWindow("Vulkan Game Engine", SDL_WINDOWPOS_UNDEFINED,
+                         SDL_WINDOWPOS_UNDEFINED, context.windowExtent.width,
+                         context.windowExtent.height, SDL_WINDOW_VULKAN);
 }
 
-graphics::~graphics() {
-    SDL_DestroyWindow(_window);
-    SDL_Quit();
-}
+void draw() {}
 
-void graphics::run() {
-    SDL_Event e;
-    bool bQuit = false;
-
-    // main loop
-    while (!bQuit) {
-        // Handle events on queue
-        while (SDL_PollEvent(&e) != 0) {
-            // close the window
-            if (e.type == SDL_QUIT) {
-                bQuit = true;
-            }
-        }
-
-        // draw();
-    }
-}
+} // namespace graphics
