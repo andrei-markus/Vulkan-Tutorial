@@ -44,6 +44,7 @@ class graphicsState {
 
     ~graphicsState() {
         vkDestroyDevice(device, nullptr);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -93,6 +94,11 @@ void init_instance() {
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &context.instance));
 }
 
+void create_surface() {
+    SDL_CHECK(SDL_Vulkan_CreateSurface(context.window, context.instance,
+                                       &context.surface));
+}
+
 void init_device() {
     uint32_t physical_device_count;
     VK_CHECK(vkEnumeratePhysicalDevices(context.instance,
@@ -119,8 +125,12 @@ void init_device() {
         physical_device, &queue_family_count, queue_families.data());
 
     auto has_graphics = false;
-    for (auto i = 0; i < queue_family_count; ++i) {
-        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+    for (uint32_t i = 0; i < queue_family_count; ++i) {
+        VkBool32 present_suport{};
+        VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(
+            physical_device, i, context.surface, &present_suport));
+        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
+            present_suport == VK_TRUE) {
             graphics_family = i;
             has_graphics = true;
             break;
@@ -169,6 +179,7 @@ void init() {
         windowExtent.width, windowExtent.height, SDL_WINDOW_VULKAN);
 
     init_instance();
+    create_surface();
     init_device();
 }
 
