@@ -35,14 +35,14 @@ namespace {
         }                                                                      \
     }
 
-class graphicsState {
+class VulkanResources {
   public:
     SDL_Window* window;
     VkInstance instance;
     VkSurfaceKHR surface;
     VkDevice device;
 
-    ~graphicsState() {
+    ~VulkanResources() {
         vkDestroyDevice(device, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
@@ -51,24 +51,27 @@ class graphicsState {
     }
 };
 
+VulkanResources vulkan_data{};
+
+namespace Engine_VK {
 VkExtent2D windowExtent{1280, 720};
-graphicsState context{};
 auto app_name = "Vulkan Game";
 auto engine_name = "Andrei Game Engine";
 
 VkPhysicalDevice physical_device;
 uint32_t graphics_family;
 VkQueue graphics_queue;
+} // namespace Engine_VK
 
 void init_instance() {
     VkApplicationInfo app_info{};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pNext = nullptr;
     // TODO load name from a game project
-    app_info.pApplicationName = app_name;
+    app_info.pApplicationName = Engine_VK::app_name;
     // TODO load version from a game project
     app_info.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
-    app_info.pEngineName = engine_name;
+    app_info.pEngineName = Engine_VK::engine_name;
     // TODO load version at compile time
     app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
     app_info.apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
@@ -82,56 +85,57 @@ void init_instance() {
     // create_info.ppEnabledLayerNames;
 
     uint32_t sdl_extension_count;
-    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(context.window,
+    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(vulkan_data.window,
                                                &sdl_extension_count, nullptr));
     std::vector<const char*> sdl_extensions(sdl_extension_count);
     SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(
-        context.window, &sdl_extension_count, sdl_extensions.data()));
+        vulkan_data.window, &sdl_extension_count, sdl_extensions.data()));
 
     create_info.enabledExtensionCount = sdl_extension_count;
     create_info.ppEnabledExtensionNames = sdl_extensions.data();
 
-    VK_CHECK(vkCreateInstance(&create_info, nullptr, &context.instance));
+    VK_CHECK(vkCreateInstance(&create_info, nullptr, &vulkan_data.instance));
 }
 
 void create_surface() {
-    SDL_CHECK(SDL_Vulkan_CreateSurface(context.window, context.instance,
-                                       &context.surface));
+    SDL_CHECK(SDL_Vulkan_CreateSurface(vulkan_data.window, vulkan_data.instance,
+                                       &vulkan_data.surface));
 }
 
 void init_device() {
     uint32_t physical_device_count;
-    VK_CHECK(vkEnumeratePhysicalDevices(context.instance,
+    VK_CHECK(vkEnumeratePhysicalDevices(vulkan_data.instance,
                                         &physical_device_count, nullptr));
     std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
     VK_CHECK(vkEnumeratePhysicalDevices(
-        context.instance, &physical_device_count, physical_devices.data()));
+        vulkan_data.instance, &physical_device_count, physical_devices.data()));
 
     // select first discrete GPU
     for (auto i = 0; i < physical_device_count; ++i) {
         VkPhysicalDeviceProperties gpu_properties;
         vkGetPhysicalDeviceProperties(physical_devices[i], &gpu_properties);
         if (gpu_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            physical_device = physical_devices[i];
+            Engine_VK::physical_device = physical_devices[i];
             break;
         }
     }
 
     uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
+    vkGetPhysicalDeviceQueueFamilyProperties(Engine_VK::physical_device,
                                              &queue_family_count, nullptr);
     std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(
-        physical_device, &queue_family_count, queue_families.data());
+        Engine_VK::physical_device, &queue_family_count, queue_families.data());
 
     auto has_graphics = false;
     for (uint32_t i = 0; i < queue_family_count; ++i) {
         VkBool32 present_suport{};
         VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(
-            physical_device, i, context.surface, &present_suport));
+            Engine_VK::physical_device, i, vulkan_data.surface,
+            &present_suport));
         if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
             present_suport == VK_TRUE) {
-            graphics_family = i;
+            Engine_VK::graphics_family = i;
             has_graphics = true;
             break;
         }
@@ -142,7 +146,7 @@ void init_device() {
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     // queue_create_info.pNext;
     // queue_create_info.flags;
-    queue_create_info.queueFamilyIndex = graphics_family;
+    queue_create_info.queueFamilyIndex = Engine_VK::graphics_family;
     queue_create_info.queueCount = 1;
     float queue_priorities = 1.0f;
     queue_create_info.pQueuePriorities = &queue_priorities;
@@ -161,10 +165,11 @@ void init_device() {
     // create_info.ppEnabledExtensionNames;
     create_info.pEnabledFeatures = &device_features;
 
-    VK_CHECK(vkCreateDevice(physical_device, &create_info, nullptr,
-                            &context.device));
+    VK_CHECK(vkCreateDevice(Engine_VK::physical_device, &create_info, nullptr,
+                            &vulkan_data.device));
 
-    vkGetDeviceQueue(context.device, graphics_family, 0, &graphics_queue);
+    vkGetDeviceQueue(vulkan_data.device, Engine_VK::graphics_family, 0,
+                     &Engine_VK::graphics_queue);
 }
 
 } // namespace
@@ -174,9 +179,10 @@ void init() {
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
 
-    context.window = SDL_CreateWindow(
-        "Vulkan Game Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        windowExtent.width, windowExtent.height, SDL_WINDOW_VULKAN);
+    vulkan_data.window =
+        SDL_CreateWindow("Vulkan Game Engine", SDL_WINDOWPOS_UNDEFINED,
+                         SDL_WINDOWPOS_UNDEFINED, Engine_VK::windowExtent.width,
+                         Engine_VK::windowExtent.height, SDL_WINDOW_VULKAN);
 
     init_instance();
     create_surface();
