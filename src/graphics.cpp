@@ -5,13 +5,22 @@
 #include <Vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace {
+#define ASSERT(assertion, errMsg)                                              \
+    {                                                                          \
+        if (!(assertion)) {                                                    \
+            std::cerr << errMsg << std::endl;                                  \
+            abort();                                                           \
+        }                                                                      \
+    }
+
 #define SDL_CHECK(x)                                                           \
     {                                                                          \
         SDL_bool err = x;                                                      \
         if (err == SDL_FALSE) {                                                \
-            std::cout << "Detected SDL error: " << SDL_GetError()              \
+            std::cerr << "Detected SDL error: " << SDL_GetError()              \
                       << std::endl;                                            \
             abort();                                                           \
         }                                                                      \
@@ -21,7 +30,7 @@ namespace {
     {                                                                          \
         VkResult err = x;                                                      \
         if (err) {                                                             \
-            std::cout << "Detected Vulkan error: " << err << std::endl;        \
+            std::cerr << "Detected Vulkan error: " << err << std::endl;        \
             abort();                                                           \
         }                                                                      \
     }
@@ -31,8 +40,10 @@ class graphicsState {
     SDL_Window* window;
     VkInstance instance;
     VkSurfaceKHR surface;
+    VkDevice device;
 
     ~graphicsState() {
+        vkDestroyDevice(device, nullptr);
         vkDestroyInstance(instance, nullptr);
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -43,6 +54,10 @@ VkExtent2D windowExtent{1280, 720};
 graphicsState context{};
 auto app_name = "Vulkan Game";
 auto engine_name = "Andrei Game Engine";
+
+VkPhysicalDevice physical_device;
+uint32_t graphics_family;
+VkQueue graphics_queue;
 
 void init_instance() {
     VkApplicationInfo app_info{};
@@ -78,6 +93,70 @@ void init_instance() {
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &context.instance));
 }
 
+void init_device() {
+    uint32_t physical_device_count;
+    VK_CHECK(vkEnumeratePhysicalDevices(context.instance,
+                                        &physical_device_count, nullptr));
+    std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
+    VK_CHECK(vkEnumeratePhysicalDevices(
+        context.instance, &physical_device_count, physical_devices.data()));
+
+    // select first discrete GPU
+    for (auto i = 0; i < physical_device_count; ++i) {
+        VkPhysicalDeviceProperties gpu_properties;
+        vkGetPhysicalDeviceProperties(physical_devices[i], &gpu_properties);
+        if (gpu_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            physical_device = physical_devices[i];
+            break;
+        }
+    }
+
+    uint32_t queue_family_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
+                                             &queue_family_count, nullptr);
+    std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        physical_device, &queue_family_count, queue_families.data());
+
+    auto has_graphics = false;
+    for (auto i = 0; i < queue_family_count; ++i) {
+        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            graphics_family = i;
+            has_graphics = true;
+            break;
+        }
+    }
+    ASSERT(has_graphics, "No graphics queue found!");
+
+    VkDeviceQueueCreateInfo queue_create_info{};
+    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    // queue_create_info.pNext;
+    // queue_create_info.flags;
+    queue_create_info.queueFamilyIndex = graphics_family;
+    queue_create_info.queueCount = 1;
+    float queue_priorities = 1.0f;
+    queue_create_info.pQueuePriorities = &queue_priorities;
+
+    VkPhysicalDeviceFeatures device_features{};
+
+    VkDeviceCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    // create_info.pNext;
+    // create_info.flags;
+    create_info.queueCreateInfoCount = 1;
+    create_info.pQueueCreateInfos = &queue_create_info;
+    // create_info.enabledLayerCount;
+    // create_info.ppEnabledLayerNames;
+    // create_info.enabledExtensionCount;
+    // create_info.ppEnabledExtensionNames;
+    create_info.pEnabledFeatures = &device_features;
+
+    VK_CHECK(vkCreateDevice(physical_device, &create_info, nullptr,
+                            &context.device));
+
+    vkGetDeviceQueue(context.device, graphics_family, 0, &graphics_queue);
+}
+
 } // namespace
 
 namespace graphics {
@@ -90,6 +169,7 @@ void init() {
         windowExtent.width, windowExtent.height, SDL_WINDOW_VULKAN);
 
     init_instance();
+    init_device();
 }
 
 void draw() {}
