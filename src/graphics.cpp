@@ -125,15 +125,18 @@ void init_device() {
     vkGetPhysicalDeviceQueueFamilyProperties(Engine_VK::physical_device,
                                              &queue_family_count, nullptr);
     std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+
     vkGetPhysicalDeviceQueueFamilyProperties(
         Engine_VK::physical_device, &queue_family_count, queue_families.data());
 
     auto has_graphics = false;
     for (uint32_t i = 0; i < queue_family_count; ++i) {
         VkBool32 present_suport{};
+
         VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(
             Engine_VK::physical_device, i, vulkan_data.surface,
             &present_suport));
+
         if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
             present_suport == VK_TRUE) {
             Engine_VK::graphics_family = i;
