@@ -4,6 +4,7 @@
 #include <SDL_vulkan.h>
 #include <Vulkan/vulkan.h>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -58,6 +59,8 @@ namespace Engine_VK {
 VkExtent2D windowExtent{1280, 720};
 auto app_name = "Vulkan Game";
 auto engine_name = "Andrei Game Engine";
+const std::vector<const char*> required_device_extensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 VkPhysicalDevice physical_device = VK_NULL_HANDLE;
 uint32_t graphics_family;
@@ -109,6 +112,24 @@ int32_t physical_device_score(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties physical_device_properties;
     vkGetPhysicalDeviceProperties(device, &physical_device_properties);
 
+    uint32_t extension_count;
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(device, nullptr,
+                                                  &extension_count, nullptr));
+    std::vector<VkExtensionProperties> available_extensions(extension_count);
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(
+        device, nullptr, &extension_count, available_extensions.data()));
+    uint32_t required_extensions_found = 0;
+    for (auto extension : available_extensions) {
+        for (auto required : Engine_VK::required_device_extensions) {
+            if (std::strcmp(extension.extensionName, required) == 0) {
+                ++required_extensions_found;
+            }
+        }
+    }
+    if (required_extensions_found <
+        Engine_VK::required_device_extensions.size()) {
+        return -1;
+    }
     if (physical_device_properties.deviceType ==
         VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
         score += 50;
@@ -162,7 +183,7 @@ void init_device() {
             Engine_VK::physical_device = physical_device;
         }
     }
-    ASSERT(Engine_VK::physical_device, "No graphics device found!");
+    ASSERT(Engine_VK::physical_device, "No graphics device selected!");
 
     VkDeviceQueueCreateInfo queue_create_info{};
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
