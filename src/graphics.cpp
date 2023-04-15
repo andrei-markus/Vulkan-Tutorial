@@ -106,6 +106,7 @@ void init_device() {
     uint32_t physical_device_count;
     VK_CHECK(vkEnumeratePhysicalDevices(vulkan_data.instance,
                                         &physical_device_count, nullptr));
+    ASSERT(physical_device_count > 0, "No graphics device found!")
     std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
     VK_CHECK(vkEnumeratePhysicalDevices(
         vulkan_data.instance, &physical_device_count, physical_devices.data()));
