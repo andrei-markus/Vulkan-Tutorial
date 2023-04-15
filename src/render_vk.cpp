@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <Vulkan/vulkan.h>
+#include <cstdint>
 #include <iostream>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -102,6 +103,19 @@ void create_surface() {
                                        &vulkan_data.surface));
 }
 
+int32_t physical_device_score(VkPhysicalDevice device) {
+    int32_t score = 0;
+
+    VkPhysicalDeviceProperties physical_device_properties;
+    vkGetPhysicalDeviceProperties(device, &physical_device_properties);
+
+    if (physical_device_properties.deviceType ==
+        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        score += 50;
+    }
+    return score;
+}
+
 void init_device() {
     uint32_t physical_device_count;
     VK_CHECK(vkEnumeratePhysicalDevices(vulkan_data.instance,
@@ -111,15 +125,17 @@ void init_device() {
     VK_CHECK(vkEnumeratePhysicalDevices(
         vulkan_data.instance, &physical_device_count, physical_devices.data()));
 
-    // select first discrete GPU
+    auto best_device_score = 0;
+    auto best_device = 0;
     for (auto i = 0; i < physical_device_count; ++i) {
-        VkPhysicalDeviceProperties gpu_properties;
-        vkGetPhysicalDeviceProperties(physical_devices[i], &gpu_properties);
-        if (gpu_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            Engine_VK::physical_device = physical_devices[i];
-            break;
+        auto score = physical_device_score(physical_devices[i]);
+
+        if (score > best_device_score) {
+            best_device = i;
+            best_device_score = score;
         }
     }
+    Engine_VK::physical_device = physical_devices[best_device];
 
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(Engine_VK::physical_device,
