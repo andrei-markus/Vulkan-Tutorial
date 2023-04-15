@@ -59,9 +59,9 @@ VkExtent2D windowExtent{1280, 720};
 auto app_name = "Vulkan Game";
 auto engine_name = "Andrei Game Engine";
 
-VkPhysicalDevice physical_device;
+VkPhysicalDevice physical_device = VK_NULL_HANDLE;
 uint32_t graphics_family;
-VkQueue graphics_queue;
+VkQueue graphics_queue = VK_NULL_HANDLE;
 } // namespace Engine_VK
 
 void init_instance() {
@@ -126,41 +126,43 @@ void init_device() {
         vulkan_data.instance, &physical_device_count, physical_devices.data()));
 
     auto best_device_score = 0;
-    auto best_device = 0;
-    for (auto i = 0; i < physical_device_count; ++i) {
-        auto score = physical_device_score(physical_devices[i]);
+    // for (auto i = 0; i < physical_device_count; ++i) {
+    for (auto physical_device : physical_devices) {
+        auto score = physical_device_score(physical_device);
+        if (score <= 0 || score < best_device_score) {
+            continue;
+        }
 
+        uint32_t queue_family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
+                                                 &queue_family_count, nullptr);
+        std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+        vkGetPhysicalDeviceQueueFamilyProperties(
+            physical_device, &queue_family_count, queue_families.data());
+
+        auto has_graphics = false;
+        for (uint32_t i = 0; i < queue_family_count; ++i) {
+            VkBool32 present_suport{};
+
+            VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(
+                physical_device, i, vulkan_data.surface, &present_suport));
+
+            if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
+                present_suport == VK_TRUE) {
+                Engine_VK::graphics_family = i;
+                has_graphics = true;
+                break;
+            }
+        }
+        if (!has_graphics) {
+            continue;
+        }
         if (score > best_device_score) {
-            best_device = i;
             best_device_score = score;
+            Engine_VK::physical_device = physical_device;
         }
     }
-    Engine_VK::physical_device = physical_devices[best_device];
-
-    uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(Engine_VK::physical_device,
-                                             &queue_family_count, nullptr);
-    std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-
-    vkGetPhysicalDeviceQueueFamilyProperties(
-        Engine_VK::physical_device, &queue_family_count, queue_families.data());
-
-    auto has_graphics = false;
-    for (uint32_t i = 0; i < queue_family_count; ++i) {
-        VkBool32 present_suport{};
-
-        VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(
-            Engine_VK::physical_device, i, vulkan_data.surface,
-            &present_suport));
-
-        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
-            present_suport == VK_TRUE) {
-            Engine_VK::graphics_family = i;
-            has_graphics = true;
-            break;
-        }
-    }
-    ASSERT(has_graphics, "No graphics queue found!");
+    ASSERT(Engine_VK::physical_device, "No graphics device found!");
 
     VkDeviceQueueCreateInfo queue_create_info{};
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
