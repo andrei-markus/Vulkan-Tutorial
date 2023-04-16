@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
 
-project("Vulkan_from_tutorial")
+project("Vulkan_from_tutorial" CXX)
 
 add_executable(${PROJECT_NAME})
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
 
 set( ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders)
