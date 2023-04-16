@@ -3,9 +3,11 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <Vulkan/vulkan.h>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -43,8 +45,14 @@ class VulkanResources {
     VkInstance instance;
     VkSurfaceKHR surface;
     VkDevice device;
+    VkSwapchainKHR swapchain;
+    std::vector<VkImageView> image_views{};
 
     ~VulkanResources() {
+        for (auto image_view : image_views) {
+            vkDestroyImageView(device, image_view, nullptr);
+        }
+        vkDestroySwapchainKHR(device, swapchain, nullptr);
         vkDestroyDevice(device, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
@@ -65,6 +73,12 @@ const std::vector<const char*> required_device_extensions = {
 VkPhysicalDevice physical_device = VK_NULL_HANDLE;
 uint32_t graphics_family;
 VkQueue graphics_queue = VK_NULL_HANDLE;
+VkFormat swapchain_format = VK_FORMAT_B8G8R8A8_SRGB;
+VkColorSpaceKHR swapchain_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+VkPresentModeKHR present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+VkExtent2D swapchain_extend{};
+uint32_t swapchain_min_image_count{};
+std::vector<VkImage> images{};
 } // namespace Engine_VK
 
 void init_instance() {
@@ -204,8 +218,10 @@ void init_device() {
     create_info.pQueueCreateInfos = &queue_create_info;
     // create_info.enabledLayerCount;
     // create_info.ppEnabledLayerNames;
-    // create_info.enabledExtensionCount;
-    // create_info.ppEnabledExtensionNames;
+    create_info.enabledExtensionCount =
+        Engine_VK::required_device_extensions.size();
+    create_info.ppEnabledExtensionNames =
+        Engine_VK::required_device_extensions.data();
     create_info.pEnabledFeatures = &device_features;
 
     VK_CHECK(vkCreateDevice(Engine_VK::physical_device, &create_info, nullptr,
@@ -213,6 +229,124 @@ void init_device() {
 
     vkGetDeviceQueue(vulkan_data.device, Engine_VK::graphics_family, 0,
                      &Engine_VK::graphics_queue);
+}
+
+void create_swapchain() {
+    VkSurfaceCapabilitiesKHR capabilities;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        Engine_VK::physical_device, vulkan_data.surface, &capabilities));
+    if (capabilities.currentExtent.width !=
+        std::numeric_limits<uint32_t>::max()) {
+        Engine_VK::swapchain_extend = capabilities.currentExtent;
+    } else {
+        int width, height;
+        SDL_Vulkan_GetDrawableSize(vulkan_data.window, &width, &height);
+
+        Engine_VK::swapchain_extend.width = std::clamp(
+            static_cast<uint32_t>(width), capabilities.minImageExtent.width,
+            capabilities.maxImageExtent.width);
+        Engine_VK::swapchain_extend.width = std::clamp(
+            static_cast<uint32_t>(height), capabilities.minImageExtent.height,
+            capabilities.maxImageExtent.height);
+    }
+
+    Engine_VK::swapchain_min_image_count = capabilities.minImageCount + 1;
+    if (capabilities.maxImageCount > 0 &&
+        Engine_VK::swapchain_min_image_count > capabilities.maxImageCount) {
+        Engine_VK::swapchain_min_image_count = capabilities.maxImageCount;
+    }
+
+    uint32_t format_count;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(Engine_VK::physical_device,
+                                                  vulkan_data.surface,
+                                                  &format_count, nullptr));
+    std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
+        Engine_VK::physical_device, vulkan_data.surface, &format_count,
+        surface_formats.data()));
+    bool found_format = false;
+    for (auto surface_format : surface_formats) {
+        if (surface_format.format == Engine_VK::swapchain_format &&
+            surface_format.colorSpace == Engine_VK::swapchain_color_space) {
+            found_format = true;
+            break;
+        }
+    }
+    if (!found_format) {
+        Engine_VK::swapchain_format = surface_formats[0].format;
+        Engine_VK::swapchain_color_space = surface_formats[0].colorSpace;
+    }
+
+    uint32_t present_mode_count;
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
+        Engine_VK::physical_device, vulkan_data.surface, &present_mode_count,
+        nullptr));
+    std::vector<VkPresentModeKHR> present_modes(present_mode_count);
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
+        Engine_VK::physical_device, vulkan_data.surface, &present_mode_count,
+        present_modes.data()));
+    bool present_found = false;
+    for (auto present_mode : present_modes) {
+        if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            present_found = true;
+            break;
+        }
+    }
+    if (!present_found) {
+        Engine_VK::present_mode = VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    VkSwapchainCreateInfoKHR create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    // create_info.pNext;
+    // create_info.flags;
+    create_info.surface = vulkan_data.surface;
+    create_info.minImageCount = Engine_VK::swapchain_min_image_count;
+    create_info.imageFormat = Engine_VK::swapchain_format;
+    create_info.imageColorSpace = Engine_VK::swapchain_color_space;
+    create_info.imageExtent = Engine_VK::swapchain_extend;
+    create_info.imageArrayLayers = 1;
+    create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    create_info.queueFamilyIndexCount = 0;
+    create_info.pQueueFamilyIndices = nullptr;
+    create_info.preTransform = capabilities.currentTransform;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode = Engine_VK::present_mode;
+    create_info.clipped = VK_TRUE;
+    create_info.oldSwapchain = VK_NULL_HANDLE;
+
+    VK_CHECK(vkCreateSwapchainKHR(vulkan_data.device, &create_info, nullptr,
+                                  &vulkan_data.swapchain));
+
+    uint32_t image_count;
+    vkGetSwapchainImagesKHR(vulkan_data.device, vulkan_data.swapchain,
+                            &image_count, nullptr);
+    Engine_VK::images.resize(image_count);
+    vkGetSwapchainImagesKHR(vulkan_data.device, vulkan_data.swapchain,
+                            &image_count, Engine_VK::images.data());
+
+    vulkan_data.image_views.resize(image_count);
+    for (auto i = 0; i < image_count; ++i) {
+        VkImageViewCreateInfo create_info{};
+        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        // create_info.pNext;
+        // create_info.flags;
+        create_info.image = Engine_VK::images[i];
+        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format = Engine_VK::swapchain_format;
+        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        create_info.subresourceRange.baseMipLevel = 0;
+        create_info.subresourceRange.levelCount = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount = 1;
+        VK_CHECK(vkCreateImageView(vulkan_data.device, &create_info, nullptr,
+                                   &vulkan_data.image_views[i]));
+    }
 }
 
 } // namespace
@@ -230,6 +364,7 @@ void init() {
     init_instance();
     create_surface();
     init_device();
+    create_swapchain();
 }
 
 void draw() {}
