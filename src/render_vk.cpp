@@ -372,9 +372,6 @@ void create_graphics_pipeline() {
     VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
     VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
 
-    vkDestroyShaderModule(vulkan_data.device, vert_shader_module, nullptr);
-    vkDestroyShaderModule(vulkan_data.device, frag_shader_module, nullptr);
-
     VkPipelineShaderStageCreateInfo vert_shader_stage_info;
     vert_shader_stage_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -397,6 +394,9 @@ void create_graphics_pipeline() {
 
     VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info,
                                                        frag_shader_stage_info};
+
+    vkDestroyShaderModule(vulkan_data.device, vert_shader_module, nullptr);
+    vkDestroyShaderModule(vulkan_data.device, frag_shader_module, nullptr);
 }
 
 } // namespace
