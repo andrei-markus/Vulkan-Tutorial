@@ -1,9 +1,11 @@
+#include "asset_loader.hpp"
 #include "graphics.hpp"
 
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <Vulkan/vulkan.h>
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -349,6 +351,54 @@ void create_swapchain() {
     }
 }
 
+VkShaderModule create_shader_module(const std::vector<std::byte>& spv_code) {
+    VkShaderModuleCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    // create_info.pNext;
+    // create_info.flags;
+    create_info.codeSize = spv_code.size();
+    create_info.pCode = reinterpret_cast<const uint32_t*>(spv_code.data());
+
+    VkShaderModule shader_module;
+    VK_CHECK(vkCreateShaderModule(vulkan_data.device, &create_info, nullptr,
+                                  &shader_module));
+    return shader_module;
+}
+
+void create_graphics_pipeline() {
+    auto vert_shader_code = read_file("shaders/shader.vert.spv");
+    auto frag_shader_code = read_file("shaders/shader.frag.spv");
+
+    VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
+    VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
+
+    vkDestroyShaderModule(vulkan_data.device, vert_shader_module, nullptr);
+    vkDestroyShaderModule(vulkan_data.device, frag_shader_module, nullptr);
+
+    VkPipelineShaderStageCreateInfo vert_shader_stage_info;
+    vert_shader_stage_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    // vert_shader_stage_info.pNext;
+    // vert_shader_stage_info.flags;
+    vert_shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vert_shader_stage_info.module = vert_shader_module;
+    vert_shader_stage_info.pName = "main";
+    // vert_shader_stage_info.pSpecializationInfo;
+
+    VkPipelineShaderStageCreateInfo frag_shader_stage_info;
+    frag_shader_stage_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    // frag_shader_stage_info.pNext;
+    // frag_shader_stage_info.flags;
+    frag_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    frag_shader_stage_info.module = frag_shader_module;
+    frag_shader_stage_info.pName = "main";
+    // frag_shader_stage_info.pSpecializationInfo;
+
+    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info,
+                                                       frag_shader_stage_info};
+}
+
 } // namespace
 
 namespace graphics {
@@ -365,6 +415,7 @@ void init() {
     create_surface();
     init_device();
     create_swapchain();
+    create_graphics_pipeline();
 }
 
 void draw() {}
