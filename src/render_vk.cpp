@@ -322,11 +322,11 @@ void create_swapchain() {
                                   &vulkan_data.swapchain));
 
     uint32_t image_count;
-    vkGetSwapchainImagesKHR(vulkan_data.device, vulkan_data.swapchain,
-                            &image_count, nullptr);
+    VK_CHECK(vkGetSwapchainImagesKHR(vulkan_data.device, vulkan_data.swapchain,
+                                     &image_count, nullptr));
     Engine_VK::images.resize(image_count);
-    vkGetSwapchainImagesKHR(vulkan_data.device, vulkan_data.swapchain,
-                            &image_count, Engine_VK::images.data());
+    VK_CHECK(vkGetSwapchainImagesKHR(vulkan_data.device, vulkan_data.swapchain,
+                                     &image_count, Engine_VK::images.data()));
 
     vulkan_data.image_views.resize(image_count);
     for (auto i = 0; i < image_count; ++i) {
