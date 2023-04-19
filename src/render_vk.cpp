@@ -49,10 +49,12 @@ class VulkanResources {
     VkDevice device;
     VkSwapchainKHR swapchain;
     std::vector<VkImageView> image_views{};
+    VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
 
     ~VulkanResources() {
         vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        vkDestroyRenderPass(device, render_pass, nullptr);
         for (auto image_view : image_views) {
             vkDestroyImageView(device, image_view, nullptr);
         }
@@ -518,6 +520,48 @@ void create_graphics_pipeline() {
     vkDestroyShaderModule(vulkan_data.device, frag_shader_module, nullptr);
 }
 
+void create_render_pass() {
+    VkAttachmentDescription color_attachment{};
+    // color_attachment.flags;
+    color_attachment.format = Engine_VK::swapchain_format;
+    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference color_attachment_ref{};
+    color_attachment_ref.attachment = 0;
+    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    // subpass.flags;
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    // subpass.inputAttachmentCount;
+    // subpass.pInputAttachments;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &color_attachment_ref;
+    // subpass.pResolveAttachments;
+    // subpass.pDepthStencilAttachment;
+    // subpass.preserveAttachmentCount;
+    // subpass.pPreserveAttachments;
+
+    VkRenderPassCreateInfo render_pass_info{};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    // render_pass_info.pNext;
+    // render_pass_info.flags;
+    render_pass_info.attachmentCount = 1;
+    render_pass_info.pAttachments = &color_attachment;
+    render_pass_info.subpassCount = 1;
+    render_pass_info.pSubpasses = &subpass;
+    // render_pass_info.dependencyCount;
+    // render_pass_info.pDependencies;
+
+    VK_CHECK(vkCreateRenderPass(vulkan_data.device, &render_pass_info, nullptr,
+                                &vulkan_data.render_pass));
+}
 } // namespace
 
 namespace graphics {
@@ -534,6 +578,7 @@ void init() {
     create_surface();
     init_device();
     create_swapchain();
+    create_render_pass();
     create_graphics_pipeline();
 }
 
