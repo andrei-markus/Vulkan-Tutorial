@@ -378,7 +378,7 @@ void create_graphics_pipeline() {
     VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
     VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
 
-    VkPipelineShaderStageCreateInfo vert_shader_stage_info;
+    VkPipelineShaderStageCreateInfo vert_shader_stage_info{};
     vert_shader_stage_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     // vert_shader_stage_info.pNext;
@@ -388,7 +388,7 @@ void create_graphics_pipeline() {
     vert_shader_stage_info.pName = "main";
     // vert_shader_stage_info.pSpecializationInfo;
 
-    VkPipelineShaderStageCreateInfo frag_shader_stage_info;
+    VkPipelineShaderStageCreateInfo frag_shader_stage_info{};
     frag_shader_stage_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     // frag_shader_stage_info.pNext;
