@@ -56,8 +56,12 @@ class VulkanResources {
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
+    std::vector<VkFramebuffer> framebuffers;
 
     ~VulkanResources() {
+        for (auto framebuffer : framebuffers) {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
         vkDestroyPipeline(device, graphics_pipeline, nullptr);
         vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
         vkDestroyRenderPass(device, render_pass, nullptr);
@@ -724,6 +728,29 @@ void create_render_pass() {
     VK_CHECK(vkCreateRenderPass(vulkan_data.device, &render_pass_info, nullptr,
                                 &vulkan_data.render_pass));
 }
+
+void create_framebuffers() {
+    vulkan_data.framebuffers.resize(vulkan_data.image_views.size());
+
+    for (auto i = 0; i < vulkan_data.image_views.size(); ++i) {
+        VkImageView attachments[] = {vulkan_data.image_views[i]};
+
+        VkFramebufferCreateInfo framebuffer_info{};
+        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        // framebuffer_info.pNext;
+        // framebuffer_info.flags;
+        framebuffer_info.renderPass = vulkan_data.render_pass;
+        framebuffer_info.attachmentCount = 1;
+        framebuffer_info.pAttachments = attachments;
+        framebuffer_info.width = Engine_VK::swapchain_extend.width;
+        framebuffer_info.height = Engine_VK::swapchain_extend.height;
+        framebuffer_info.layers = 1;
+
+        VK_CHECK(vkCreateFramebuffer(vulkan_data.device, &framebuffer_info,
+                                     nullptr, &vulkan_data.framebuffers[i]));
+    }
+}
+
 } // namespace
 
 namespace graphics {
@@ -747,6 +774,7 @@ void init() {
     create_swapchain();
     create_render_pass();
     create_graphics_pipeline();
+    create_framebuffers();
 }
 
 void draw() {}
