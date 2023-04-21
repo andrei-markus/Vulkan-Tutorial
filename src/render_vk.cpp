@@ -11,6 +11,7 @@
 #include <iostream>
 #include <limits>
 #include <vector>
+#include <vulkan/vk_platform.h>
 #include <vulkan/vulkan_core.h>
 
 namespace {
@@ -45,6 +46,9 @@ class VulkanResources {
   public:
     SDL_Window* window;
     VkInstance instance;
+#ifdef _DEBUG
+    VkDebugUtilsMessengerEXT debug_messenger;
+#endif
     VkSurfaceKHR surface;
     VkDevice device;
     VkSwapchainKHR swapchain;
@@ -63,6 +67,15 @@ class VulkanResources {
         vkDestroySwapchainKHR(device, swapchain, nullptr);
         vkDestroyDevice(device, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
+#ifdef _DEBUG
+        if (debug_messenger) {
+            auto vkDestroyDebugUtilsMessengerEXT =
+                reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+                    vkGetInstanceProcAddr(instance,
+                                          "vkDestroyDebugUtilsMessengerEXT"));
+            vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+        }
+#endif
         vkDestroyInstance(instance, nullptr);
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -77,6 +90,14 @@ auto app_name = "Vulkan Game";
 auto engine_name = "Andrei Game Engine";
 const std::vector<const char*> required_device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+const std::vector<const char*> validation_layers = {
+    "VK_LAYER_KHRONOS_validation"};
+
+#if _DEBUG
+constexpr bool validation_layer = true;
+#else
+constexpr bool validation_layer = false;
+#endif
 
 VkPhysicalDevice physical_device = VK_NULL_HANDLE;
 uint32_t graphics_family;
@@ -89,7 +110,111 @@ uint32_t swapchain_min_image_count{};
 std::vector<VkImage> images{};
 } // namespace Engine_VK
 
+#ifdef _DEBUG
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+               VkDebugUtilsMessageTypeFlagsEXT message_type,
+               const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
+               void* p_user_data) {
+    switch (message_severity) {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+        std::cerr << "[ERROR]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+        std::cerr << "[VERBOSE]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+        std::cerr << "[INFO]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+        std::cerr << "[WARNING]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
+        break;
+    }
+
+    switch (message_type) {
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
+        std::cerr << "[GENERAL]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
+        std::cerr << "[VALIDATION]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
+        std::cerr << "[PERFORMANCE]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT:
+        std::cerr << "[DEVICE_ADDRESS_BINDING]";
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_FLAG_BITS_MAX_ENUM_EXT:
+        break;
+    }
+
+    std::cerr << p_callback_data->pMessage << std::endl;
+    return VK_FALSE;
+}
+
+bool check_validation_layer_support() {
+    uint32_t layer_count;
+    vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+    std::vector<VkLayerProperties> available_layers(layer_count);
+    vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
+
+    for (const char* layerName : Engine_VK::validation_layers) {
+        bool layer_found = false;
+        for (const auto& layerProperties : available_layers) {
+            if (strcmp(layerName, layerProperties.layerName) == 0) {
+                layer_found = true;
+                break;
+            }
+        }
+        if (!layer_found) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+VkDebugUtilsMessengerCreateInfoEXT get_debug_messenger() {
+    VkDebugUtilsMessengerCreateInfoEXT create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    // create_info.pNext;
+    // create_info.flags;
+    create_info.messageSeverity =
+        // VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+        // VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    create_info.messageType =
+        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
+    create_info.pfnUserCallback = debug_callback;
+    // create_info.pUserData;
+    return create_info;
+}
+
+void init_debug_messenger() {
+    ASSERT(check_validation_layer_support(),
+           "Requested validation not supported!");
+    auto create_info = get_debug_messenger();
+    auto vkCreateDebugUtilsMessengerEXT =
+        reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(vulkan_data.instance,
+                                  "vkCreateDebugUtilsMessengerEXT"));
+
+    VK_CHECK(vkCreateDebugUtilsMessengerEXT(vulkan_data.instance, &create_info,
+                                            nullptr,
+                                            &vulkan_data.debug_messenger));
+}
+#endif
+
 void init_instance() {
+#ifdef _DEBUG
+    auto messenger_create_info = get_debug_messenger();
+#endif
     VkApplicationInfo app_info{};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pNext = nullptr;
@@ -107,9 +232,13 @@ void init_instance() {
     create_info.pNext = nullptr;
     // create_info.flags;
     create_info.pApplicationInfo = &app_info;
-    // create_info.enabledLayerCount;
-    // create_info.ppEnabledLayerNames;
-
+#ifdef _DEBUG
+    if (Engine_VK::validation_layer) {
+        create_info.enabledLayerCount = Engine_VK::validation_layers.size();
+        create_info.ppEnabledLayerNames = Engine_VK::validation_layers.data();
+        create_info.pNext = &messenger_create_info;
+    }
+#endif
     uint32_t sdl_extension_count;
     SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(vulkan_data.window,
                                                &sdl_extension_count, nullptr));
@@ -117,8 +246,14 @@ void init_instance() {
     SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(
         vulkan_data.window, &sdl_extension_count, sdl_extensions.data()));
 
-    create_info.enabledExtensionCount = sdl_extension_count;
-    create_info.ppEnabledExtensionNames = sdl_extensions.data();
+    std::vector<const char*> extensions(sdl_extensions);
+#ifdef _DEBUG
+    if (Engine_VK::validation_layer) {
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+#endif
+    create_info.enabledExtensionCount = extensions.size();
+    create_info.ppEnabledExtensionNames = extensions.data();
 
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &vulkan_data.instance));
 }
@@ -603,6 +738,11 @@ void init() {
 
     init_instance();
     create_surface();
+#ifdef _DEBUG
+    if (Engine_VK::validation_layer) {
+        init_debug_messenger();
+    }
+#endif
     init_device();
     create_swapchain();
     create_render_pass();

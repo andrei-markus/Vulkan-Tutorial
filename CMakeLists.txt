@@ -5,6 +5,11 @@ project("Game_Engine" CXX)
 add_executable(${PROJECT_NAME})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
+add_compile_definitions(
+                    $<$<CONFIG:Debug>:_DEBUG>
+                    $<$<CONFIG:RelWithDebInfo>:_REL_DEBUG>
+                    $<$<CONFIG:Release>:_RELEASE>
+                    $<$<CONFIG:MinSizeRel>:_RELEASE>)
 
 set( ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders)
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
