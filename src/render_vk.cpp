@@ -57,8 +57,11 @@ class VulkanResources {
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
     std::vector<VkFramebuffer> framebuffers;
+    VkCommandPool command_pool;
+    VkCommandBuffer command_buffer;
 
     ~VulkanResources() {
+        vkDestroyCommandPool(device, command_pool, nullptr);
         for (auto framebuffer : framebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
@@ -751,6 +754,78 @@ void create_framebuffers() {
     }
 }
 
+void create_command_pool() {
+    VkCommandPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    // pool_info.pNext;
+    // pool_info.flags;
+    pool_info.queueFamilyIndex = Engine_VK::graphics_family;
+
+    VK_CHECK(vkCreateCommandPool(vulkan_data.device, &pool_info, nullptr,
+                                 &vulkan_data.command_pool));
+}
+
+void create_command_buffer() {
+    VkCommandBufferAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    // alloc_info.pNext;
+    alloc_info.commandPool = vulkan_data.command_pool;
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = 1;
+
+    VK_CHECK(vkAllocateCommandBuffers(vulkan_data.device, &alloc_info,
+                                      &vulkan_data.command_buffer));
+}
+
+void record_command_buffer(VkCommandBuffer command_buffer,
+                           uint32_t image_index) {
+    VkCommandBufferBeginInfo begin_info{};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    // begin_info.pNext;
+    begin_info.flags = 0;
+    begin_info.pInheritanceInfo = nullptr;
+    VK_CHECK(vkBeginCommandBuffer(command_buffer, &begin_info));
+
+    VkRenderPassBeginInfo render_pass_info{};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    // render_pass_info.pNext;
+    render_pass_info.renderPass = vulkan_data.render_pass;
+    render_pass_info.framebuffer = vulkan_data.framebuffers[image_index];
+    render_pass_info.renderArea.offset = {0, 0};
+    render_pass_info.renderArea.extent = Engine_VK::swapchain_extend;
+    VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues = &clear_color;
+
+    vkCmdBeginRenderPass(command_buffer, &render_pass_info,
+                         VK_SUBPASS_CONTENTS_INLINE);
+
+    {
+        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          vulkan_data.graphics_pipeline);
+
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(Engine_VK::swapchain_extend.width);
+        viewport.height =
+            static_cast<float>(Engine_VK::swapchain_extend.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = Engine_VK::swapchain_extend;
+        vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+        vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    }
+
+    vkCmdEndRenderPass(command_buffer);
+    VK_CHECK(vkEndCommandBuffer(command_buffer));
+}
+
 } // namespace
 
 namespace graphics {
@@ -775,6 +850,8 @@ void init() {
     create_render_pass();
     create_graphics_pipeline();
     create_framebuffers();
+    create_command_pool();
+    create_command_buffer();
 }
 
 void draw() {}
