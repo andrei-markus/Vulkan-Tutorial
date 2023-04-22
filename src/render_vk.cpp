@@ -59,8 +59,15 @@ class VulkanResources {
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool command_pool;
     VkCommandBuffer command_buffer;
+    VkSemaphore image_available_semaphore;
+    VkSemaphore render_finished_semaphore;
+    VkFence in_flight_fence;
 
     ~VulkanResources() {
+        vkDeviceWaitIdle(device);
+        vkDestroyFence(device, in_flight_fence, nullptr);
+        vkDestroySemaphore(device, render_finished_semaphore, nullptr);
+        vkDestroySemaphore(device, image_available_semaphore, nullptr);
         vkDestroyCommandPool(device, command_pool, nullptr);
         for (auto framebuffer : framebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -717,6 +724,15 @@ void create_render_pass() {
     // subpass.preserveAttachmentCount;
     // subpass.pPreserveAttachments;
 
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    // dependency.dependencyFlags;
+
     VkRenderPassCreateInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     // render_pass_info.pNext;
@@ -725,8 +741,8 @@ void create_render_pass() {
     render_pass_info.pAttachments = &color_attachment;
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass;
-    // render_pass_info.dependencyCount;
-    // render_pass_info.pDependencies;
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies = &dependency;
 
     VK_CHECK(vkCreateRenderPass(vulkan_data.device, &render_pass_info, nullptr,
                                 &vulkan_data.render_pass));
@@ -758,7 +774,7 @@ void create_command_pool() {
     VkCommandPoolCreateInfo pool_info{};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     // pool_info.pNext;
-    // pool_info.flags;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = Engine_VK::graphics_family;
 
     VK_CHECK(vkCreateCommandPool(vulkan_data.device, &pool_info, nullptr,
@@ -826,6 +842,27 @@ void record_command_buffer(VkCommandBuffer command_buffer,
     VK_CHECK(vkEndCommandBuffer(command_buffer));
 }
 
+void create_sync_objects() {
+    VkSemaphoreCreateInfo semaphore_info{};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    // semaphore_info.pNext;
+    // semaphore_info.flags;
+
+    VkFenceCreateInfo fence_info{};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    // fence_info.pNext;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VK_CHECK(vkCreateSemaphore(vulkan_data.device, &semaphore_info, nullptr,
+                               &vulkan_data.image_available_semaphore));
+
+    VK_CHECK(vkCreateSemaphore(vulkan_data.device, &semaphore_info, nullptr,
+                               &vulkan_data.render_finished_semaphore));
+
+    VK_CHECK(vkCreateFence(vulkan_data.device, &fence_info, nullptr,
+                           &vulkan_data.in_flight_fence));
+}
+
 } // namespace
 
 namespace graphics {
@@ -852,8 +889,60 @@ void init() {
     create_framebuffers();
     create_command_pool();
     create_command_buffer();
+    create_sync_objects();
 }
 
-void draw() {}
+void draw() {
+    VK_CHECK(vkWaitForFences(vulkan_data.device, 1,
+                             &vulkan_data.in_flight_fence, VK_TRUE,
+                             std::numeric_limits<uint64_t>::max()));
+
+    VK_CHECK(
+        vkResetFences(vulkan_data.device, 1, &vulkan_data.in_flight_fence));
+
+    uint32_t image_index;
+    VK_CHECK(vkAcquireNextImageKHR(vulkan_data.device, vulkan_data.swapchain,
+                                   std::numeric_limits<uint64_t>::max(),
+                                   vulkan_data.image_available_semaphore,
+                                   VK_NULL_HANDLE, &image_index));
+
+    VK_CHECK(vkResetCommandBuffer(vulkan_data.command_buffer, 0));
+
+    record_command_buffer(vulkan_data.command_buffer, image_index);
+
+    VkSubmitInfo submit_info{};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    // submit_info.pNext;
+
+    VkSemaphore wait_semaphores[] = {vulkan_data.image_available_semaphore};
+    VkPipelineStageFlags wait_stages[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = wait_semaphores;
+    submit_info.pWaitDstStageMask = wait_stages;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &vulkan_data.command_buffer;
+
+    VkSemaphore signal_semaphores[] = {vulkan_data.render_finished_semaphore};
+
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = signal_semaphores;
+
+    VK_CHECK(vkQueueSubmit(Engine_VK::graphics_queue, 1, &submit_info,
+                           vulkan_data.in_flight_fence));
+
+    VkPresentInfoKHR present_info{};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    // present_info.pNext;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+    VkSwapchainKHR swapchains[] = {vulkan_data.swapchain};
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchains;
+    present_info.pImageIndices = &image_index;
+    present_info.pResults = nullptr;
+
+    VK_CHECK(vkQueuePresentKHR(Engine_VK::graphics_queue, &present_info));
+}
 
 } // namespace graphics
