@@ -54,8 +54,6 @@ class VulkanGlobals {
 
 #if _DEBUG
     static constexpr bool validation_layer = true;
-#else
-    constexpr bool validation_layer = false;
 #endif
 
     VkPhysicalDevice physical_device = VK_NULL_HANDLE;
