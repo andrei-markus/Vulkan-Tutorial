@@ -53,9 +53,11 @@ class VulkanGlobals {
         "VK_LAYER_KHRONOS_validation"};
 
 #if _DEBUG
-    static constexpr bool validation_layer = true;
+    const bool validation_layer = true;
 #endif
 
+    const uint32_t double_buffered = 2;
+    uint32_t current_frame = 0;
     VkPhysicalDevice physical_device = VK_NULL_HANDLE;
     uint32_t graphics_family;
     VkQueue graphics_queue = VK_NULL_HANDLE;
@@ -82,16 +84,18 @@ class VulkanGlobals {
     VkPipeline graphics_pipeline;
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool command_pool;
-    VkCommandBuffer command_buffer;
-    VkSemaphore image_available_semaphore;
-    VkSemaphore render_finished_semaphore;
-    VkFence in_flight_fence;
+    std::vector<VkCommandBuffer> command_buffers;
+    std::vector<VkSemaphore> image_available_semaphores;
+    std::vector<VkSemaphore> render_finished_semaphores;
+    std::vector<VkFence> in_flight_fences;
 
     ~VulkanGlobals() {
         vkDeviceWaitIdle(device);
-        vkDestroyFence(device, in_flight_fence, nullptr);
-        vkDestroySemaphore(device, render_finished_semaphore, nullptr);
-        vkDestroySemaphore(device, image_available_semaphore, nullptr);
+        for (auto i = 0; i < double_buffered; ++i) {
+            vkDestroyFence(device, in_flight_fences[i], nullptr);
+            vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
+            vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
+        }
         vkDestroyCommandPool(device, command_pool, nullptr);
         for (auto framebuffer : framebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -772,15 +776,18 @@ void create_command_pool() {
 }
 
 void create_command_buffer() {
+    vkg.command_buffers.resize(vkg.double_buffered);
+
     VkCommandBufferAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     // alloc_info.pNext;
     alloc_info.commandPool = vkg.command_pool;
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandBufferCount = 1;
+    alloc_info.commandBufferCount =
+        static_cast<uint32_t>(vkg.command_buffers.size());
 
-    VK_CHECK(
-        vkAllocateCommandBuffers(vkg.device, &alloc_info, &vkg.command_buffer));
+    VK_CHECK(vkAllocateCommandBuffers(vkg.device, &alloc_info,
+                                      vkg.command_buffers.data()));
 }
 
 void record_command_buffer(VkCommandBuffer command_buffer,
@@ -832,6 +839,10 @@ void record_command_buffer(VkCommandBuffer command_buffer,
 }
 
 void create_sync_objects() {
+    vkg.image_available_semaphores.resize(vkg.double_buffered);
+    vkg.render_finished_semaphores.resize(vkg.double_buffered);
+    vkg.in_flight_fences.resize(vkg.double_buffered);
+
     VkSemaphoreCreateInfo semaphore_info{};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     // semaphore_info.pNext;
@@ -842,14 +853,16 @@ void create_sync_objects() {
     // fence_info.pNext;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    VK_CHECK(vkCreateSemaphore(vkg.device, &semaphore_info, nullptr,
-                               &vkg.image_available_semaphore));
+    for (auto i = 0; i < vkg.double_buffered; ++i) {
+        VK_CHECK(vkCreateSemaphore(vkg.device, &semaphore_info, nullptr,
+                                   &vkg.image_available_semaphores[i]));
 
-    VK_CHECK(vkCreateSemaphore(vkg.device, &semaphore_info, nullptr,
-                               &vkg.render_finished_semaphore));
+        VK_CHECK(vkCreateSemaphore(vkg.device, &semaphore_info, nullptr,
+                                   &vkg.render_finished_semaphores[i]));
 
-    VK_CHECK(
-        vkCreateFence(vkg.device, &fence_info, nullptr, &vkg.in_flight_fence));
+        VK_CHECK(vkCreateFence(vkg.device, &fence_info, nullptr,
+                               &vkg.in_flight_fences[i]));
+    }
 }
 
 } // namespace
@@ -881,40 +894,45 @@ void init() {
 }
 
 void draw() {
-    VK_CHECK(vkWaitForFences(vkg.device, 1, &vkg.in_flight_fence, VK_TRUE,
+    VK_CHECK(vkWaitForFences(vkg.device, 1,
+                             &vkg.in_flight_fences[vkg.current_frame], VK_TRUE,
                              std::numeric_limits<uint64_t>::max()));
 
-    VK_CHECK(vkResetFences(vkg.device, 1, &vkg.in_flight_fence));
+    VK_CHECK(
+        vkResetFences(vkg.device, 1, &vkg.in_flight_fences[vkg.current_frame]));
 
     uint32_t image_index;
     VK_CHECK(vkAcquireNextImageKHR(
         vkg.device, vkg.swapchain, std::numeric_limits<uint64_t>::max(),
-        vkg.image_available_semaphore, VK_NULL_HANDLE, &image_index));
+        vkg.image_available_semaphores[vkg.current_frame], VK_NULL_HANDLE,
+        &image_index));
 
-    VK_CHECK(vkResetCommandBuffer(vkg.command_buffer, 0));
+    VK_CHECK(vkResetCommandBuffer(vkg.command_buffers[vkg.current_frame], 0));
 
-    record_command_buffer(vkg.command_buffer, image_index);
+    record_command_buffer(vkg.command_buffers[vkg.current_frame], image_index);
 
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     // submit_info.pNext;
 
-    VkSemaphore wait_semaphores[] = {vkg.image_available_semaphore};
+    VkSemaphore wait_semaphores[] = {
+        vkg.image_available_semaphores[vkg.current_frame]};
     VkPipelineStageFlags wait_stages[] = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submit_info.waitSemaphoreCount = 1;
     submit_info.pWaitSemaphores = wait_semaphores;
     submit_info.pWaitDstStageMask = wait_stages;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &vkg.command_buffer;
+    submit_info.pCommandBuffers = &vkg.command_buffers[vkg.current_frame];
 
-    VkSemaphore signal_semaphores[] = {vkg.render_finished_semaphore};
+    VkSemaphore signal_semaphores[] = {
+        vkg.render_finished_semaphores[vkg.current_frame]};
 
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
     VK_CHECK(vkQueueSubmit(vkg.graphics_queue, 1, &submit_info,
-                           vkg.in_flight_fence));
+                           vkg.in_flight_fences[vkg.current_frame]));
 
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -928,6 +946,8 @@ void draw() {
     present_info.pResults = nullptr;
 
     VK_CHECK(vkQueuePresentKHR(vkg.graphics_queue, &present_info));
+
+    vkg.current_frame = (vkg.current_frame + 1) % vkg.double_buffered;
 }
 
 } // namespace graphics
