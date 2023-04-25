@@ -1,7 +1,10 @@
+#include "render_vk.hpp"
+
 #include "asset_loader.hpp"
 #include "graphics.hpp"
 
 #include <SDL.h>
+#include <SDL_video.h>
 #include <SDL_vulkan.h>
 #include <Vulkan/vulkan.h>
 #include <algorithm>
@@ -37,7 +40,8 @@ namespace {
     {                                                                          \
         VkResult err = x;                                                      \
         if (err) {                                                             \
-            std::cerr << "Detected Vulkan error: " << err << std::endl;        \
+            std::cerr << "Detected Vulkan error: " << vk_result_string(err)    \
+                      << std::endl;                                            \
             abort();                                                           \
         }                                                                      \
     }
