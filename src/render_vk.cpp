@@ -46,6 +46,9 @@ namespace {
         }                                                                      \
     }
 
+void cleanup_swapchain();
+void recreate_swapchain();
+
 class VulkanGlobals {
   public:
     VkExtent2D windowExtent{1280, 720};
@@ -95,22 +98,16 @@ class VulkanGlobals {
 
     ~VulkanGlobals() {
         vkDeviceWaitIdle(device);
+        cleanup_swapchain();
         for (auto i = 0; i < double_buffered; ++i) {
             vkDestroyFence(device, in_flight_fences[i], nullptr);
             vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
             vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
         }
         vkDestroyCommandPool(device, command_pool, nullptr);
-        for (auto framebuffer : framebuffers) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
-        }
         vkDestroyPipeline(device, graphics_pipeline, nullptr);
         vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
         vkDestroyRenderPass(device, render_pass, nullptr);
-        for (auto image_view : image_views) {
-            vkDestroyImageView(device, image_view, nullptr);
-        }
-        vkDestroySwapchainKHR(device, swapchain, nullptr);
         vkDestroyDevice(device, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
 #ifdef _DEBUG
@@ -869,6 +866,26 @@ void create_sync_objects() {
     }
 }
 
+void cleanup_swapchain() {
+    for (auto framebuffer : vkg.framebuffers) {
+        vkDestroyFramebuffer(vkg.device, framebuffer, nullptr);
+    }
+
+    for (auto image_view : vkg.image_views) {
+        vkDestroyImageView(vkg.device, image_view, nullptr);
+    }
+    vkDestroySwapchainKHR(vkg.device, vkg.swapchain, nullptr);
+}
+
+void recreate_swapchain() {
+    vkDeviceWaitIdle(vkg.device);
+
+    cleanup_swapchain();
+
+    create_swapchain();
+    create_framebuffers();
+}
+
 } // namespace
 
 namespace graphics {
@@ -878,7 +895,8 @@ void init() {
 
     vkg.window = SDL_CreateWindow(
         "Vulkan Game Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        vkg.windowExtent.width, vkg.windowExtent.height, SDL_WINDOW_VULKAN);
+        vkg.windowExtent.width, vkg.windowExtent.height,
+        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     init_instance();
     create_surface();
@@ -902,14 +920,21 @@ void draw() {
                              &vkg.in_flight_fences[vkg.current_frame], VK_TRUE,
                              std::numeric_limits<uint64_t>::max()));
 
-    VK_CHECK(
-        vkResetFences(vkg.device, 1, &vkg.in_flight_fences[vkg.current_frame]));
-
     uint32_t image_index;
-    VK_CHECK(vkAcquireNextImageKHR(
+    auto acquire_result = vkAcquireNextImageKHR(
         vkg.device, vkg.swapchain, std::numeric_limits<uint64_t>::max(),
         vkg.image_available_semaphores[vkg.current_frame], VK_NULL_HANDLE,
-        &image_index));
+        &image_index);
+    if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR ||
+        acquire_result == VK_SUBOPTIMAL_KHR) {
+        recreate_swapchain();
+        return;
+    } else {
+        VK_CHECK(acquire_result);
+    }
+
+    VK_CHECK(
+        vkResetFences(vkg.device, 1, &vkg.in_flight_fences[vkg.current_frame]));
 
     VK_CHECK(vkResetCommandBuffer(vkg.command_buffers[vkg.current_frame], 0));
 
@@ -949,9 +974,20 @@ void draw() {
     present_info.pImageIndices = &image_index;
     present_info.pResults = nullptr;
 
-    VK_CHECK(vkQueuePresentKHR(vkg.graphics_queue, &present_info));
+    auto present_result = vkQueuePresentKHR(vkg.graphics_queue, &present_info);
+    if (present_result == VK_ERROR_OUT_OF_DATE_KHR ||
+        present_result == VK_SUBOPTIMAL_KHR) {
+        recreate_swapchain();
+    } else {
+        VK_CHECK(present_result);
+    }
 
     vkg.current_frame = (vkg.current_frame + 1) % vkg.double_buffered;
+}
+
+void resize_window() {
+    // TODO save custom size in settings
+    recreate_swapchain();
 }
 
 } // namespace graphics

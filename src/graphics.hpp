@@ -4,6 +4,7 @@
 namespace graphics {
 void init();
 void draw();
+void resize_window();
 } // namespace graphics
 
 #endif
