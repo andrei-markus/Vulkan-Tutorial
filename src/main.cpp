@@ -1,34 +1,35 @@
 #include "graphics.hpp"
 
 #include <SDL.h>
-#include <SDL_events.h>
-#include <SDL_video.h>
-#include <iostream>
 
 int main(int argc, char* argv[]) {
     bool is_window_minimized = false;
     graphics::init();
 
-    SDL_Event e;
-    bool bQuit = false;
+    SDL_Event sdl_event;
+    bool quit_app = false;
     // main loop
-    while (!bQuit) {
+    while (!quit_app) {
         // Handle events on queue
-        while (SDL_PollEvent(&e) != 0) {
-            // close the window
-            if (e.type == SDL_QUIT) {
-                bQuit = true;
-            }
-            if (e.type == SDL_WINDOWEVENT) {
-                if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+        while (SDL_PollEvent(&sdl_event) != 0) {
+            switch (sdl_event.type) {
+            case SDL_QUIT:
+                // close the window
+                quit_app = true;
+                break;
+            case SDL_WINDOWEVENT:
+                switch (sdl_event.window.event) {
+                case SDL_WINDOWEVENT_MINIMIZED:
                     is_window_minimized = true;
-                }
-                if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
+                    break;
+                case SDL_WINDOWEVENT_RESTORED:
                     is_window_minimized = false;
-                }
-                if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    break;
+                case SDL_WINDOWEVENT_SIZE_CHANGED:
                     graphics::resize_window();
+                    break;
                 }
+                break;
             }
         }
 
