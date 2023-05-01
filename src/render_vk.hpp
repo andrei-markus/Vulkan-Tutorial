@@ -1,3 +1,6 @@
+#ifndef RENDER_VK_HPP
+#define RENDER_VK_HPP
+
 #include <vulkan/vulkan_core.h>
 
 inline const char* vk_result_string(VkResult err) {
@@ -103,3 +106,5 @@ inline const char* vk_result_string(VkResult err) {
         return "UKNOWN Error";
     }
 }
+
+#endif
