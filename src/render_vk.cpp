@@ -2,12 +2,14 @@
 
 #include "asset_loader.hpp"
 #include "graphics.hpp"
+#include "mathlib.hpp"
 
 #include <SDL.h>
 #include <SDL_video.h>
 #include <SDL_vulkan.h>
 #include <Vulkan/vulkan.h>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -45,6 +47,37 @@ namespace {
             abort();                                                           \
         }                                                                      \
     }
+
+struct Vertex {
+    math::vec2 pos;
+    math::vec3 color;
+
+    static VkVertexInputBindingDescription get_binding_description() {
+        VkVertexInputBindingDescription binding_description{};
+        binding_description.binding = 0;
+        binding_description.stride = sizeof(Vertex);
+        binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return binding_description;
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 2>
+    get_attribute_descriptions() {
+        std::array<VkVertexInputAttributeDescription, 2>
+            attribute_descriptions{};
+        attribute_descriptions[0].location = 0;
+        attribute_descriptions[0].binding = 0;
+        attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attribute_descriptions[0].offset = offsetof(Vertex, pos);
+
+        attribute_descriptions[1].location = 1;
+        attribute_descriptions[1].binding = 0;
+        attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attribute_descriptions[1].offset = offsetof(Vertex, color);
+
+        return attribute_descriptions;
+    }
+};
 
 void cleanup_swapchain();
 void recreate_swapchain();
@@ -91,6 +124,8 @@ class VulkanGlobals {
     VkPipeline graphics_pipeline;
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool command_pool;
+    VkBuffer vertex_buffer;
+    VkDeviceMemory vertex_buffer_memory;
     std::vector<VkCommandBuffer> command_buffers;
     std::vector<VkSemaphore> image_available_semaphores;
     std::vector<VkSemaphore> render_finished_semaphores;
@@ -104,6 +139,8 @@ class VulkanGlobals {
             vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
             vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
         }
+        vkDestroyBuffer(device, vertex_buffer, nullptr);
+        vkFreeMemory(device, vertex_buffer_memory, nullptr);
         vkDestroyCommandPool(device, command_pool, nullptr);
         vkDestroyPipeline(device, graphics_pipeline, nullptr);
         vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
@@ -126,6 +163,9 @@ class VulkanGlobals {
 };
 
 VulkanGlobals vkg{};
+const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
 #ifdef _DEBUG
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -555,15 +595,20 @@ void create_graphics_pipeline() {
         static_cast<uint32_t>(dynamic_states.size());
     dynamic_state.pDynamicStates = dynamic_states.data();
 
+    auto binding_description = Vertex::get_binding_description();
+    auto attribute_descriptions = Vertex::get_attribute_descriptions();
+
     VkPipelineVertexInputStateCreateInfo vertex_input_info{};
     vertex_input_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     // vertex_input_info.pNext;
     // vertex_input_info.flags;
-    vertex_input_info.vertexBindingDescriptionCount = 0;
-    vertex_input_info.pVertexBindingDescriptions = nullptr;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_info.pVertexAttributeDescriptions = nullptr;
+    vertex_input_info.vertexBindingDescriptionCount = 1;
+    vertex_input_info.pVertexBindingDescriptions = &binding_description;
+    vertex_input_info.vertexAttributeDescriptionCount =
+        static_cast<uint32_t>(attribute_descriptions.size());
+    vertex_input_info.pVertexAttributeDescriptions =
+        attribute_descriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly{};
     input_assembly.sType =
@@ -791,6 +836,62 @@ void create_command_buffer() {
                                       vkg.command_buffers.data()));
 }
 
+uint32_t find_memory_type(uint32_t type_filter,
+                          VkMemoryPropertyFlags properties) {
+
+    VkPhysicalDeviceMemoryProperties mem_properties;
+    vkGetPhysicalDeviceMemoryProperties(vkg.physical_device, &mem_properties);
+
+    for (uint32_t i = 0; i < mem_properties.memoryTypeCount; ++i) {
+        if (type_filter & (1 << i) &&
+            (mem_properties.memoryTypes[i].propertyFlags & properties) ==
+                properties) {
+            return i;
+        }
+    }
+    ASSERT(false, "Failed to find memory type");
+}
+
+void create_vertex_buffer() {
+    VkBufferCreateInfo buffer_info{};
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    // buffer_info.pNext;
+    // buffer_info.flags;
+    buffer_info.size = sizeof(vertices[0]) * vertices.size();
+    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // buffer_info.queueFamilyIndexCount;
+    // buffer_info.pQueueFamilyIndices;
+
+    VK_CHECK(
+        vkCreateBuffer(vkg.device, &buffer_info, nullptr, &vkg.vertex_buffer));
+
+    VkMemoryRequirements mem_requirements;
+    vkGetBufferMemoryRequirements(vkg.device, vkg.vertex_buffer,
+                                  &mem_requirements);
+
+    VkMemoryAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    // alloc_info.pNext;
+    alloc_info.allocationSize = mem_requirements.size;
+    alloc_info.memoryTypeIndex =
+        find_memory_type(mem_requirements.memoryTypeBits,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    VK_CHECK(vkAllocateMemory(vkg.device, &alloc_info, nullptr,
+                              &vkg.vertex_buffer_memory));
+
+    vkBindBufferMemory(vkg.device, vkg.vertex_buffer, vkg.vertex_buffer_memory,
+                       0);
+
+    void* data;
+    vkMapMemory(vkg.device, vkg.vertex_buffer_memory, 0, buffer_info.size, 0,
+                &data);
+    std::memcpy(data, vertices.data(), static_cast<size_t>(buffer_info.size));
+    vkUnmapMemory(vkg.device, vkg.vertex_buffer_memory);
+}
+
 void record_command_buffer(VkCommandBuffer command_buffer,
                            uint32_t image_index) {
     VkCommandBufferBeginInfo begin_info{};
@@ -832,7 +933,12 @@ void record_command_buffer(VkCommandBuffer command_buffer,
         scissor.extent = vkg.swapchain_extend;
         vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-        vkCmdDraw(command_buffer, 3, 1, 0, 0);
+        VkBuffer vertex_buffers[] = {vkg.vertex_buffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+
+        vkCmdDraw(command_buffer, static_cast<uint32_t>(vertices.size()), 1, 0,
+                  0);
     }
 
     vkCmdEndRenderPass(command_buffer);
@@ -911,6 +1017,7 @@ void init() {
     create_graphics_pipeline();
     create_framebuffers();
     create_command_pool();
+    create_vertex_buffer();
     create_command_buffer();
     create_sync_objects();
 }
