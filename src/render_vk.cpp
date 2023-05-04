@@ -126,6 +126,8 @@ class VulkanGlobals {
     VkCommandPool command_pool;
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_memory;
+    VkBuffer index_buffer;
+    VkDeviceMemory index_buffer_memory;
     std::vector<VkCommandBuffer> command_buffers;
     std::vector<VkSemaphore> image_available_semaphores;
     std::vector<VkSemaphore> render_finished_semaphores;
@@ -139,6 +141,8 @@ class VulkanGlobals {
             vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
             vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
         }
+        vkDestroyBuffer(device, index_buffer, nullptr);
+        vkFreeMemory(device, index_buffer_memory, nullptr);
         vkDestroyBuffer(device, vertex_buffer, nullptr);
         vkFreeMemory(device, vertex_buffer_memory, nullptr);
         vkDestroyCommandPool(device, command_pool, nullptr);
@@ -163,9 +167,11 @@ class VulkanGlobals {
 };
 
 VulkanGlobals vkg{};
-const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                      {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+                                      {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 #ifdef _DEBUG
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -950,6 +956,34 @@ void create_vertex_buffer() {
     vkFreeMemory(vkg.device, staging_buffer_memory, nullptr);
 }
 
+void create_index_buffer() {
+    VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+
+    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  staging_buffer, staging_buffer_memory);
+
+    void* data;
+    vkMapMemory(vkg.device, staging_buffer_memory, 0, buffer_size, 0, &data);
+    std::memcpy(data, indices.data(), static_cast<size_t>(buffer_size));
+    vkUnmapMemory(vkg.device, staging_buffer_memory);
+
+    create_buffer(buffer_size,
+                  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vkg.index_buffer,
+                  vkg.index_buffer_memory);
+
+    copy_buffer(staging_buffer, vkg.index_buffer, buffer_size);
+
+    vkDestroyBuffer(vkg.device, staging_buffer, nullptr);
+    vkFreeMemory(vkg.device, staging_buffer_memory, nullptr);
+}
+
 void record_command_buffer(VkCommandBuffer command_buffer,
                            uint32_t image_index) {
     VkCommandBufferBeginInfo begin_info{};
@@ -995,8 +1029,11 @@ void record_command_buffer(VkCommandBuffer command_buffer,
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
 
-        vkCmdDraw(command_buffer, static_cast<uint32_t>(vertices.size()), 1, 0,
-                  0);
+        vkCmdBindIndexBuffer(command_buffer, vkg.index_buffer, 0,
+                             VK_INDEX_TYPE_UINT16);
+
+        vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(indices.size()),
+                         1, 0, 0, 0);
     }
 
     vkCmdEndRenderPass(command_buffer);
@@ -1076,6 +1113,7 @@ void init() {
     create_framebuffers();
     create_command_pool();
     create_vertex_buffer();
+    create_index_buffer();
     create_command_buffer();
     create_sync_objects();
 }
