@@ -192,8 +192,7 @@ debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
         std::cerr << "[WARNING]";
         break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT: break;
     }
 
     switch (message_type) {
@@ -209,8 +208,7 @@ debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT:
         std::cerr << "[DEVICE_ADDRESS_BINDING]";
         break;
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_FLAG_BITS_MAX_ENUM_EXT:
-        break;
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_FLAG_BITS_MAX_ENUM_EXT: break;
     }
 
     std::cerr << p_callback_data->pMessage << std::endl;
@@ -231,9 +229,7 @@ bool check_validation_layer_support() {
                 break;
             }
         }
-        if (!layer_found) {
-            return false;
-        }
+        if (!layer_found) { return false; }
     }
 
     return true;
@@ -268,8 +264,8 @@ void init_debug_messenger() {
             vkGetInstanceProcAddr(vkg.instance,
                                   "vkCreateDebugUtilsMessengerEXT"));
 
-    VK_CHECK(vkCreateDebugUtilsMessengerEXT(vkg.instance, &create_info, nullptr,
-                                            &vkg.debug_messenger));
+    VK_CHECK(vkCreateDebugUtilsMessengerEXT(
+        vkg.instance, &create_info, nullptr, &vkg.debug_messenger));
 }
 #endif
 
@@ -302,11 +298,11 @@ void init_instance() {
     }
 #endif
     uint32_t sdl_extension_count;
-    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(vkg.window, &sdl_extension_count,
-                                               nullptr));
+    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(
+        vkg.window, &sdl_extension_count, nullptr));
     std::vector<const char*> sdl_extensions(sdl_extension_count);
-    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(vkg.window, &sdl_extension_count,
-                                               sdl_extensions.data()));
+    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(
+        vkg.window, &sdl_extension_count, sdl_extensions.data()));
 
     std::vector<const char*> extensions(sdl_extensions);
 #ifdef _DEBUG
@@ -331,8 +327,8 @@ int32_t physical_device_score(VkPhysicalDevice device) {
     vkGetPhysicalDeviceProperties(device, &physical_device_properties);
 
     uint32_t extension_count;
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(device, nullptr,
-                                                  &extension_count, nullptr));
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(
+        device, nullptr, &extension_count, nullptr));
     std::vector<VkExtensionProperties> available_extensions(extension_count);
     VK_CHECK(vkEnumerateDeviceExtensionProperties(
         device, nullptr, &extension_count, available_extensions.data()));
@@ -356,24 +352,22 @@ int32_t physical_device_score(VkPhysicalDevice device) {
 
 void init_device() {
     uint32_t physical_device_count;
-    VK_CHECK(vkEnumeratePhysicalDevices(vkg.instance, &physical_device_count,
-                                        nullptr));
+    VK_CHECK(vkEnumeratePhysicalDevices(
+        vkg.instance, &physical_device_count, nullptr));
     ASSERT(physical_device_count > 0, "No graphics device found!")
     std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
-    VK_CHECK(vkEnumeratePhysicalDevices(vkg.instance, &physical_device_count,
-                                        physical_devices.data()));
+    VK_CHECK(vkEnumeratePhysicalDevices(
+        vkg.instance, &physical_device_count, physical_devices.data()));
 
     auto best_device_score = 0;
     // for (auto i = 0; i < physical_device_count; ++i) {
     for (auto physical_device : physical_devices) {
         auto score = physical_device_score(physical_device);
-        if (score <= 0 || score < best_device_score) {
-            continue;
-        }
+        if (score <= 0 || score < best_device_score) { continue; }
 
         uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
-                                                 &queue_family_count, nullptr);
+        vkGetPhysicalDeviceQueueFamilyProperties(
+            physical_device, &queue_family_count, nullptr);
         std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
         vkGetPhysicalDeviceQueueFamilyProperties(
             physical_device, &queue_family_count, queue_families.data());
@@ -392,9 +386,7 @@ void init_device() {
                 break;
             }
         }
-        if (!has_graphics) {
-            continue;
-        }
+        if (!has_graphics) { continue; }
         if (score > best_device_score) {
             best_device_score = score;
             vkg.physical_device = physical_device;
@@ -425,8 +417,8 @@ void init_device() {
     create_info.ppEnabledExtensionNames = vkg.required_device_extensions.data();
     create_info.pEnabledFeatures = &device_features;
 
-    VK_CHECK(vkCreateDevice(vkg.physical_device, &create_info, nullptr,
-                            &vkg.device));
+    VK_CHECK(vkCreateDevice(
+        vkg.physical_device, &create_info, nullptr, &vkg.device));
 
     vkGetDeviceQueue(vkg.device, vkg.graphics_family, 0, &vkg.graphics_queue);
 }
@@ -442,12 +434,14 @@ void create_swapchain() {
         int width, height;
         SDL_Vulkan_GetDrawableSize(vkg.window, &width, &height);
 
-        vkg.swapchain_extend.width = std::clamp(
-            static_cast<uint32_t>(width), capabilities.minImageExtent.width,
-            capabilities.maxImageExtent.width);
-        vkg.swapchain_extend.width = std::clamp(
-            static_cast<uint32_t>(height), capabilities.minImageExtent.height,
-            capabilities.maxImageExtent.height);
+        vkg.swapchain_extend.width =
+            std::clamp(static_cast<uint32_t>(width),
+                       capabilities.minImageExtent.width,
+                       capabilities.maxImageExtent.width);
+        vkg.swapchain_extend.width =
+            std::clamp(static_cast<uint32_t>(height),
+                       capabilities.minImageExtent.height,
+                       capabilities.maxImageExtent.height);
     }
 
     vkg.swapchain_min_image_count = capabilities.minImageCount + 1;
@@ -461,7 +455,8 @@ void create_swapchain() {
         vkg.physical_device, vkg.surface, &format_count, nullptr));
     std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkg.physical_device,
-                                                  vkg.surface, &format_count,
+                                                  vkg.surface,
+                                                  &format_count,
                                                   surface_formats.data()));
     bool found_format = false;
     for (auto surface_format : surface_formats) {
@@ -480,9 +475,10 @@ void create_swapchain() {
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
         vkg.physical_device, vkg.surface, &present_mode_count, nullptr));
     std::vector<VkPresentModeKHR> present_modes(present_mode_count);
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-        vkg.physical_device, vkg.surface, &present_mode_count,
-        present_modes.data()));
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vkg.physical_device,
+                                                       vkg.surface,
+                                                       &present_mode_count,
+                                                       present_modes.data()));
     bool present_found = false;
     for (auto present_mode : present_modes) {
         if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -490,9 +486,7 @@ void create_swapchain() {
             break;
         }
     }
-    if (!present_found) {
-        vkg.present_mode = VK_PRESENT_MODE_FIFO_KHR;
-    }
+    if (!present_found) { vkg.present_mode = VK_PRESENT_MODE_FIFO_KHR; }
 
     VkSwapchainCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -514,15 +508,15 @@ void create_swapchain() {
     create_info.clipped = VK_TRUE;
     create_info.oldSwapchain = VK_NULL_HANDLE;
 
-    VK_CHECK(vkCreateSwapchainKHR(vkg.device, &create_info, nullptr,
-                                  &vkg.swapchain));
+    VK_CHECK(vkCreateSwapchainKHR(
+        vkg.device, &create_info, nullptr, &vkg.swapchain));
 
     uint32_t image_count;
-    VK_CHECK(vkGetSwapchainImagesKHR(vkg.device, vkg.swapchain, &image_count,
-                                     nullptr));
+    VK_CHECK(vkGetSwapchainImagesKHR(
+        vkg.device, vkg.swapchain, &image_count, nullptr));
     vkg.images.resize(image_count);
-    VK_CHECK(vkGetSwapchainImagesKHR(vkg.device, vkg.swapchain, &image_count,
-                                     vkg.images.data()));
+    VK_CHECK(vkGetSwapchainImagesKHR(
+        vkg.device, vkg.swapchain, &image_count, vkg.images.data()));
 
     vkg.image_views.resize(image_count);
     for (auto i = 0; i < image_count; ++i) {
@@ -542,8 +536,8 @@ void create_swapchain() {
         create_info.subresourceRange.levelCount = 1;
         create_info.subresourceRange.baseArrayLayer = 0;
         create_info.subresourceRange.layerCount = 1;
-        VK_CHECK(vkCreateImageView(vkg.device, &create_info, nullptr,
-                                   &vkg.image_views[i]));
+        VK_CHECK(vkCreateImageView(
+            vkg.device, &create_info, nullptr, &vkg.image_views[i]));
     }
 }
 
@@ -556,8 +550,8 @@ VkShaderModule create_shader_module(const std::vector<std::byte>& spv_code) {
     create_info.pCode = reinterpret_cast<const uint32_t*>(spv_code.data());
 
     VkShaderModule shader_module;
-    VK_CHECK(vkCreateShaderModule(vkg.device, &create_info, nullptr,
-                                  &shader_module));
+    VK_CHECK(vkCreateShaderModule(
+        vkg.device, &create_info, nullptr, &shader_module));
     return shader_module;
 }
 
@@ -710,8 +704,8 @@ void create_graphics_pipeline() {
     pipeline_layout_info.pushConstantRangeCount = 0;
     pipeline_layout_info.pPushConstantRanges = nullptr;
 
-    VK_CHECK(vkCreatePipelineLayout(vkg.device, &pipeline_layout_info, nullptr,
-                                    &vkg.pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(
+        vkg.device, &pipeline_layout_info, nullptr, &vkg.pipeline_layout));
 
     VkGraphicsPipelineCreateInfo pipeline_info{};
     pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -734,8 +728,11 @@ void create_graphics_pipeline() {
     pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
     pipeline_info.basePipelineIndex = -1;
 
-    VK_CHECK(vkCreateGraphicsPipelines(vkg.device, VK_NULL_HANDLE, 1,
-                                       &pipeline_info, nullptr,
+    VK_CHECK(vkCreateGraphicsPipelines(vkg.device,
+                                       VK_NULL_HANDLE,
+                                       1,
+                                       &pipeline_info,
+                                       nullptr,
                                        &vkg.graphics_pipeline));
 
     vkDestroyShaderModule(vkg.device, vert_shader_module, nullptr);
@@ -790,8 +787,8 @@ void create_render_pass() {
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    VK_CHECK(vkCreateRenderPass(vkg.device, &render_pass_info, nullptr,
-                                &vkg.render_pass));
+    VK_CHECK(vkCreateRenderPass(
+        vkg.device, &render_pass_info, nullptr, &vkg.render_pass));
 }
 
 void create_framebuffers() {
@@ -811,8 +808,8 @@ void create_framebuffers() {
         framebuffer_info.height = vkg.swapchain_extend.height;
         framebuffer_info.layers = 1;
 
-        VK_CHECK(vkCreateFramebuffer(vkg.device, &framebuffer_info, nullptr,
-                                     &vkg.framebuffers[i]));
+        VK_CHECK(vkCreateFramebuffer(
+            vkg.device, &framebuffer_info, nullptr, &vkg.framebuffers[i]));
     }
 }
 
@@ -823,8 +820,8 @@ void create_command_pool() {
     pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = vkg.graphics_family;
 
-    VK_CHECK(vkCreateCommandPool(vkg.device, &pool_info, nullptr,
-                                 &vkg.command_pool));
+    VK_CHECK(vkCreateCommandPool(
+        vkg.device, &pool_info, nullptr, &vkg.command_pool));
 }
 
 void create_command_buffer() {
@@ -838,8 +835,8 @@ void create_command_buffer() {
     alloc_info.commandBufferCount =
         static_cast<uint32_t>(vkg.command_buffers.size());
 
-    VK_CHECK(vkAllocateCommandBuffers(vkg.device, &alloc_info,
-                                      vkg.command_buffers.data()));
+    VK_CHECK(vkAllocateCommandBuffers(
+        vkg.device, &alloc_info, vkg.command_buffers.data()));
 }
 
 uint32_t find_memory_type(uint32_t type_filter,
@@ -858,8 +855,10 @@ uint32_t find_memory_type(uint32_t type_filter,
     ASSERT(false, "Failed to find memory type");
 }
 
-void create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                   VkMemoryPropertyFlags properties, VkBuffer& buffer,
+void create_buffer(VkDeviceSize size,
+                   VkBufferUsageFlags usage,
+                   VkMemoryPropertyFlags properties,
+                   VkBuffer& buffer,
                    VkDeviceMemory& buffer_memory) {
     VkBufferCreateInfo buffer_info{};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -933,21 +932,24 @@ void create_vertex_buffer() {
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
 
-    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    create_buffer(buffer_size,
+                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  staging_buffer, staging_buffer_memory);
+                  staging_buffer,
+                  staging_buffer_memory);
 
     void* data;
-    VK_CHECK(vkMapMemory(vkg.device, staging_buffer_memory, 0, buffer_size, 0,
-                         &data));
+    VK_CHECK(vkMapMemory(
+        vkg.device, staging_buffer_memory, 0, buffer_size, 0, &data));
     std::memcpy(data, vertices.data(), static_cast<size_t>(buffer_size));
     vkUnmapMemory(vkg.device, staging_buffer_memory);
 
     create_buffer(buffer_size,
                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vkg.vertex_buffer,
+                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                  vkg.vertex_buffer,
                   vkg.vertex_buffer_memory);
 
     copy_buffer(staging_buffer, vkg.vertex_buffer, buffer_size);
@@ -962,10 +964,12 @@ void create_index_buffer() {
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
 
-    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    create_buffer(buffer_size,
+                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  staging_buffer, staging_buffer_memory);
+                  staging_buffer,
+                  staging_buffer_memory);
 
     void* data;
     vkMapMemory(vkg.device, staging_buffer_memory, 0, buffer_size, 0, &data);
@@ -975,7 +979,8 @@ void create_index_buffer() {
     create_buffer(buffer_size,
                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vkg.index_buffer,
+                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                  vkg.index_buffer,
                   vkg.index_buffer_memory);
 
     copy_buffer(staging_buffer, vkg.index_buffer, buffer_size);
@@ -1004,11 +1009,12 @@ void record_command_buffer(VkCommandBuffer command_buffer,
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clear_color;
 
-    vkCmdBeginRenderPass(command_buffer, &render_pass_info,
-                         VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(
+        command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
     {
-        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vkCmdBindPipeline(command_buffer,
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
                           vkg.graphics_pipeline);
 
         VkViewport viewport{};
@@ -1029,11 +1035,11 @@ void record_command_buffer(VkCommandBuffer command_buffer,
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
 
-        vkCmdBindIndexBuffer(command_buffer, vkg.index_buffer, 0,
-                             VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(
+            command_buffer, vkg.index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-        vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(indices.size()),
-                         1, 0, 0, 0);
+        vkCmdDrawIndexed(
+            command_buffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     }
 
     vkCmdEndRenderPass(command_buffer);
@@ -1056,14 +1062,18 @@ void create_sync_objects() {
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (auto i = 0; i < vkg.double_buffered; ++i) {
-        VK_CHECK(vkCreateSemaphore(vkg.device, &semaphore_info, nullptr,
+        VK_CHECK(vkCreateSemaphore(vkg.device,
+                                   &semaphore_info,
+                                   nullptr,
                                    &vkg.image_available_semaphores[i]));
 
-        VK_CHECK(vkCreateSemaphore(vkg.device, &semaphore_info, nullptr,
+        VK_CHECK(vkCreateSemaphore(vkg.device,
+                                   &semaphore_info,
+                                   nullptr,
                                    &vkg.render_finished_semaphores[i]));
 
-        VK_CHECK(vkCreateFence(vkg.device, &fence_info, nullptr,
-                               &vkg.in_flight_fences[i]));
+        VK_CHECK(vkCreateFence(
+            vkg.device, &fence_info, nullptr, &vkg.in_flight_fences[i]));
     }
 }
 
@@ -1094,17 +1104,17 @@ void init() {
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
 
-    vkg.window = SDL_CreateWindow(
-        "Vulkan Game Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        vkg.windowExtent.width, vkg.windowExtent.height,
-        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    vkg.window = SDL_CreateWindow("Vulkan Game Engine",
+                                  SDL_WINDOWPOS_UNDEFINED,
+                                  SDL_WINDOWPOS_UNDEFINED,
+                                  vkg.windowExtent.width,
+                                  vkg.windowExtent.height,
+                                  SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     init_instance();
     create_surface();
 #ifdef _DEBUG
-    if (vkg.validation_layer) {
-        init_debug_messenger();
-    }
+    if (vkg.validation_layer) { init_debug_messenger(); }
 #endif
     init_device();
     create_swapchain();
@@ -1119,15 +1129,20 @@ void init() {
 }
 
 void draw() {
-    VK_CHECK(vkWaitForFences(vkg.device, 1,
-                             &vkg.in_flight_fences[vkg.current_frame], VK_TRUE,
+    VK_CHECK(vkWaitForFences(vkg.device,
+                             1,
+                             &vkg.in_flight_fences[vkg.current_frame],
+                             VK_TRUE,
                              std::numeric_limits<uint64_t>::max()));
 
     uint32_t image_index;
-    auto acquire_result = vkAcquireNextImageKHR(
-        vkg.device, vkg.swapchain, std::numeric_limits<uint64_t>::max(),
-        vkg.image_available_semaphores[vkg.current_frame], VK_NULL_HANDLE,
-        &image_index);
+    auto acquire_result =
+        vkAcquireNextImageKHR(vkg.device,
+                              vkg.swapchain,
+                              std::numeric_limits<uint64_t>::max(),
+                              vkg.image_available_semaphores[vkg.current_frame],
+                              VK_NULL_HANDLE,
+                              &image_index);
     if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR ||
         acquire_result == VK_SUBOPTIMAL_KHR) {
         recreate_swapchain();
@@ -1163,7 +1178,9 @@ void draw() {
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
-    VK_CHECK(vkQueueSubmit(vkg.graphics_queue, 1, &submit_info,
+    VK_CHECK(vkQueueSubmit(vkg.graphics_queue,
+                           1,
+                           &submit_info,
                            vkg.in_flight_fences[vkg.current_frame]));
 
     VkPresentInfoKHR present_info{};

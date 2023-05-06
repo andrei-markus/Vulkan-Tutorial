@@ -33,10 +33,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        if (!is_window_minimized) {
-
-            graphics::draw();
-        }
+        if (!is_window_minimized) { graphics::draw(); }
     }
 
     return 0;

@@ -1,7 +1,18 @@
 ---
 BasedOnStyle: LLVM
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: True
+AllowShortEnumsOnASingleLine: True
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: True
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: False
+BinPackParameters: False
 IncludeBlocks: Regroup
 IndentWidth: '4'
+InsertNewlineAtEOF: True
 PointerAlignment: Left
 TabWidth: '4'
 UseTab: Never
