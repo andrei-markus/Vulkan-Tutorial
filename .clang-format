@@ -1,13 +1,8 @@
 ---
 BasedOnStyle: LLVM
-AllowShortBlocksOnASingleLine: Always
-AllowShortCaseLabelsOnASingleLine: True
-AllowShortEnumsOnASingleLine: True
-AllowShortFunctionsOnASingleLine: All
-AllowShortIfStatementsOnASingleLine: AllIfsAndElse
-AllowShortLambdasOnASingleLine: All
-AllowShortLoopsOnASingleLine: True
-AlwaysBreakTemplateDeclarations: Yes
+AlignArrayOfStructures: Right
+AllowAllArgumentsOnNextLine: False
+AllowAllParametersOfDeclarationOnNextLine: False
 BinPackArguments: False
 BinPackParameters: False
 IncludeBlocks: Regroup

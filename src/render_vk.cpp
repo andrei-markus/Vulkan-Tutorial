@@ -186,10 +186,12 @@ class VulkanGlobals {
 };
 
 VulkanGlobals vkg{};
-const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                      {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-                                      {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-                                      {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    { {0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {  {0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    { {-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 #ifdef _DEBUG
@@ -211,7 +213,8 @@ debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
         std::cerr << "[WARNING]";
         break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT: break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
+        break;
     }
 
     switch (message_type) {
@@ -227,7 +230,8 @@ debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT:
         std::cerr << "[DEVICE_ADDRESS_BINDING]";
         break;
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_FLAG_BITS_MAX_ENUM_EXT: break;
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_FLAG_BITS_MAX_ENUM_EXT:
+        break;
     }
 
     std::cerr << p_callback_data->pMessage << std::endl;
@@ -248,7 +252,9 @@ bool check_validation_layer_support() {
                 break;
             }
         }
-        if (!layer_found) { return false; }
+        if (!layer_found) {
+            return false;
+        }
     }
 
     return true;
@@ -283,8 +289,10 @@ void init_debug_messenger() {
             vkGetInstanceProcAddr(vkg.instance,
                                   "vkCreateDebugUtilsMessengerEXT"));
 
-    VK_CHECK(vkCreateDebugUtilsMessengerEXT(
-        vkg.instance, &create_info, nullptr, &vkg.debug_messenger));
+    VK_CHECK(vkCreateDebugUtilsMessengerEXT(vkg.instance,
+                                            &create_info,
+                                            nullptr,
+                                            &vkg.debug_messenger));
 }
 #endif
 
@@ -317,11 +325,13 @@ void init_instance() {
     }
 #endif
     uint32_t sdl_extension_count;
-    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(
-        vkg.window, &sdl_extension_count, nullptr));
+    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(vkg.window,
+                                               &sdl_extension_count,
+                                               nullptr));
     std::vector<const char*> sdl_extensions(sdl_extension_count);
-    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(
-        vkg.window, &sdl_extension_count, sdl_extensions.data()));
+    SDL_CHECK(SDL_Vulkan_GetInstanceExtensions(vkg.window,
+                                               &sdl_extension_count,
+                                               sdl_extensions.data()));
 
     std::vector<const char*> extensions(sdl_extensions);
 #ifdef _DEBUG
@@ -346,11 +356,15 @@ int32_t physical_device_score(VkPhysicalDevice device) {
     vkGetPhysicalDeviceProperties(device, &physical_device_properties);
 
     uint32_t extension_count;
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(
-        device, nullptr, &extension_count, nullptr));
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(device,
+                                                  nullptr,
+                                                  &extension_count,
+                                                  nullptr));
     std::vector<VkExtensionProperties> available_extensions(extension_count);
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(
-        device, nullptr, &extension_count, available_extensions.data()));
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(device,
+                                                  nullptr,
+                                                  &extension_count,
+                                                  available_extensions.data()));
     uint32_t required_extensions_found = 0;
     for (auto extension : available_extensions) {
         for (auto required : vkg.required_device_extensions) {
@@ -371,32 +385,40 @@ int32_t physical_device_score(VkPhysicalDevice device) {
 
 void init_device() {
     uint32_t physical_device_count;
-    VK_CHECK(vkEnumeratePhysicalDevices(
-        vkg.instance, &physical_device_count, nullptr));
+    VK_CHECK(vkEnumeratePhysicalDevices(vkg.instance,
+                                        &physical_device_count,
+                                        nullptr));
     ASSERT(physical_device_count > 0, "No graphics device found!")
     std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
-    VK_CHECK(vkEnumeratePhysicalDevices(
-        vkg.instance, &physical_device_count, physical_devices.data()));
+    VK_CHECK(vkEnumeratePhysicalDevices(vkg.instance,
+                                        &physical_device_count,
+                                        physical_devices.data()));
 
     auto best_device_score = 0;
     // for (auto i = 0; i < physical_device_count; ++i) {
     for (auto physical_device : physical_devices) {
         auto score = physical_device_score(physical_device);
-        if (score <= 0 || score < best_device_score) { continue; }
+        if (score <= 0 || score < best_device_score) {
+            continue;
+        }
 
         uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(
-            physical_device, &queue_family_count, nullptr);
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
+                                                 &queue_family_count,
+                                                 nullptr);
         std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(
-            physical_device, &queue_family_count, queue_families.data());
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
+                                                 &queue_family_count,
+                                                 queue_families.data());
 
         auto has_graphics = false;
         for (uint32_t i = 0; i < queue_family_count; ++i) {
             VkBool32 present_suport{};
 
-            VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(
-                physical_device, i, vkg.surface, &present_suport));
+            VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device,
+                                                          i,
+                                                          vkg.surface,
+                                                          &present_suport));
 
             if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
                 present_suport == VK_TRUE) {
@@ -405,7 +427,9 @@ void init_device() {
                 break;
             }
         }
-        if (!has_graphics) { continue; }
+        if (!has_graphics) {
+            continue;
+        }
         if (score > best_device_score) {
             best_device_score = score;
             vkg.physical_device = physical_device;
@@ -436,16 +460,19 @@ void init_device() {
     create_info.ppEnabledExtensionNames = vkg.required_device_extensions.data();
     create_info.pEnabledFeatures = &device_features;
 
-    VK_CHECK(vkCreateDevice(
-        vkg.physical_device, &create_info, nullptr, &vkg.device));
+    VK_CHECK(vkCreateDevice(vkg.physical_device,
+                            &create_info,
+                            nullptr,
+                            &vkg.device));
 
     vkGetDeviceQueue(vkg.device, vkg.graphics_family, 0, &vkg.graphics_queue);
 }
 
 void create_swapchain() {
     VkSurfaceCapabilitiesKHR capabilities;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        vkg.physical_device, vkg.surface, &capabilities));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkg.physical_device,
+                                                       vkg.surface,
+                                                       &capabilities));
     if (capabilities.currentExtent.width !=
         std::numeric_limits<uint32_t>::max()) {
         vkg.swapchain_extend = capabilities.currentExtent;
@@ -470,8 +497,10 @@ void create_swapchain() {
     }
 
     uint32_t format_count;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
-        vkg.physical_device, vkg.surface, &format_count, nullptr));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkg.physical_device,
+                                                  vkg.surface,
+                                                  &format_count,
+                                                  nullptr));
     std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkg.physical_device,
                                                   vkg.surface,
@@ -491,8 +520,10 @@ void create_swapchain() {
     }
 
     uint32_t present_mode_count;
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-        vkg.physical_device, vkg.surface, &present_mode_count, nullptr));
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vkg.physical_device,
+                                                       vkg.surface,
+                                                       &present_mode_count,
+                                                       nullptr));
     std::vector<VkPresentModeKHR> present_modes(present_mode_count);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vkg.physical_device,
                                                        vkg.surface,
@@ -505,7 +536,9 @@ void create_swapchain() {
             break;
         }
     }
-    if (!present_found) { vkg.present_mode = VK_PRESENT_MODE_FIFO_KHR; }
+    if (!present_found) {
+        vkg.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+    }
 
     VkSwapchainCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -527,15 +560,21 @@ void create_swapchain() {
     create_info.clipped = VK_TRUE;
     create_info.oldSwapchain = VK_NULL_HANDLE;
 
-    VK_CHECK(vkCreateSwapchainKHR(
-        vkg.device, &create_info, nullptr, &vkg.swapchain));
+    VK_CHECK(vkCreateSwapchainKHR(vkg.device,
+                                  &create_info,
+                                  nullptr,
+                                  &vkg.swapchain));
 
     uint32_t image_count;
-    VK_CHECK(vkGetSwapchainImagesKHR(
-        vkg.device, vkg.swapchain, &image_count, nullptr));
+    VK_CHECK(vkGetSwapchainImagesKHR(vkg.device,
+                                     vkg.swapchain,
+                                     &image_count,
+                                     nullptr));
     vkg.images.resize(image_count);
-    VK_CHECK(vkGetSwapchainImagesKHR(
-        vkg.device, vkg.swapchain, &image_count, vkg.images.data()));
+    VK_CHECK(vkGetSwapchainImagesKHR(vkg.device,
+                                     vkg.swapchain,
+                                     &image_count,
+                                     vkg.images.data()));
 
     vkg.image_views.resize(image_count);
     for (auto i = 0; i < image_count; ++i) {
@@ -555,8 +594,10 @@ void create_swapchain() {
         create_info.subresourceRange.levelCount = 1;
         create_info.subresourceRange.baseArrayLayer = 0;
         create_info.subresourceRange.layerCount = 1;
-        VK_CHECK(vkCreateImageView(
-            vkg.device, &create_info, nullptr, &vkg.image_views[i]));
+        VK_CHECK(vkCreateImageView(vkg.device,
+                                   &create_info,
+                                   nullptr,
+                                   &vkg.image_views[i]));
     }
 }
 
@@ -569,8 +610,10 @@ VkShaderModule create_shader_module(const std::vector<std::byte>& spv_code) {
     create_info.pCode = reinterpret_cast<const uint32_t*>(spv_code.data());
 
     VkShaderModule shader_module;
-    VK_CHECK(vkCreateShaderModule(
-        vkg.device, &create_info, nullptr, &shader_module));
+    VK_CHECK(vkCreateShaderModule(vkg.device,
+                                  &create_info,
+                                  nullptr,
+                                  &shader_module));
     return shader_module;
 }
 
@@ -723,8 +766,10 @@ void create_graphics_pipeline() {
     pipeline_layout_info.pushConstantRangeCount = 0;
     pipeline_layout_info.pPushConstantRanges = nullptr;
 
-    VK_CHECK(vkCreatePipelineLayout(
-        vkg.device, &pipeline_layout_info, nullptr, &vkg.pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(vkg.device,
+                                    &pipeline_layout_info,
+                                    nullptr,
+                                    &vkg.pipeline_layout));
 
     VkGraphicsPipelineCreateInfo pipeline_info{};
     pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -806,8 +851,10 @@ void create_render_pass() {
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    VK_CHECK(vkCreateRenderPass(
-        vkg.device, &render_pass_info, nullptr, &vkg.render_pass));
+    VK_CHECK(vkCreateRenderPass(vkg.device,
+                                &render_pass_info,
+                                nullptr,
+                                &vkg.render_pass));
 }
 
 void create_framebuffers() {
@@ -827,8 +874,10 @@ void create_framebuffers() {
         framebuffer_info.height = vkg.swapchain_extend.height;
         framebuffer_info.layers = 1;
 
-        VK_CHECK(vkCreateFramebuffer(
-            vkg.device, &framebuffer_info, nullptr, &vkg.framebuffers[i]));
+        VK_CHECK(vkCreateFramebuffer(vkg.device,
+                                     &framebuffer_info,
+                                     nullptr,
+                                     &vkg.framebuffers[i]));
     }
 }
 
@@ -839,8 +888,10 @@ void create_command_pool() {
     pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = vkg.graphics_family;
 
-    VK_CHECK(vkCreateCommandPool(
-        vkg.device, &pool_info, nullptr, &vkg.command_pool));
+    VK_CHECK(vkCreateCommandPool(vkg.device,
+                                 &pool_info,
+                                 nullptr,
+                                 &vkg.command_pool));
 }
 
 void create_command_buffer() {
@@ -854,8 +905,9 @@ void create_command_buffer() {
     alloc_info.commandBufferCount =
         static_cast<uint32_t>(vkg.command_buffers.size());
 
-    VK_CHECK(vkAllocateCommandBuffers(
-        vkg.device, &alloc_info, vkg.command_buffers.data()));
+    VK_CHECK(vkAllocateCommandBuffers(vkg.device,
+                                      &alloc_info,
+                                      vkg.command_buffers.data()));
 }
 
 uint32_t find_memory_type(uint32_t type_filter,
@@ -959,8 +1011,12 @@ void create_vertex_buffer() {
                   staging_buffer_memory);
 
     void* data;
-    VK_CHECK(vkMapMemory(
-        vkg.device, staging_buffer_memory, 0, buffer_size, 0, &data));
+    VK_CHECK(vkMapMemory(vkg.device,
+                         staging_buffer_memory,
+                         0,
+                         buffer_size,
+                         0,
+                         &data));
     std::memcpy(data, vertices.data(), static_cast<size_t>(buffer_size));
     vkUnmapMemory(vkg.device, staging_buffer_memory);
 
@@ -1028,47 +1084,56 @@ void record_command_buffer(VkCommandBuffer command_buffer,
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clear_color;
 
-    vkCmdBeginRenderPass(
-        command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(command_buffer,
+                         &render_pass_info,
+                         VK_SUBPASS_CONTENTS_INLINE);
 
-    {
-        vkCmdBindPipeline(command_buffer,
-                          VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          vkg.graphics_pipeline);
+    // Begin Render Pass
 
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(vkg.swapchain_extend.width);
-        viewport.height = static_cast<float>(vkg.swapchain_extend.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+    vkCmdBindPipeline(command_buffer,
+                      VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      vkg.graphics_pipeline);
 
-        VkRect2D scissor{};
-        scissor.offset = {0, 0};
-        scissor.extent = vkg.swapchain_extend;
-        vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(vkg.swapchain_extend.width);
+    viewport.height = static_cast<float>(vkg.swapchain_extend.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
-        VkBuffer vertex_buffers[] = {vkg.vertex_buffer};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = vkg.swapchain_extend;
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-        vkCmdBindIndexBuffer(
-            command_buffer, vkg.index_buffer, 0, VK_INDEX_TYPE_UINT16);
+    VkBuffer vertex_buffers[] = {vkg.vertex_buffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
 
-        vkCmdBindDescriptorSets(command_buffer,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                vkg.pipeline_layout,
-                                0,
-                                1,
-                                &vkg.descriptor_sets[vkg.current_frame],
-                                0,
-                                nullptr);
+    vkCmdBindIndexBuffer(command_buffer,
+                         vkg.index_buffer,
+                         0,
+                         VK_INDEX_TYPE_UINT16);
 
-        vkCmdDrawIndexed(
-            command_buffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-    }
+    vkCmdBindDescriptorSets(command_buffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            vkg.pipeline_layout,
+                            0,
+                            1,
+                            &vkg.descriptor_sets[vkg.current_frame],
+                            0,
+                            nullptr);
+
+    vkCmdDrawIndexed(command_buffer,
+                     static_cast<uint32_t>(indices.size()),
+                     1,
+                     0,
+                     0,
+                     0);
+
+    // End Render Pass
 
     vkCmdEndRenderPass(command_buffer);
     VK_CHECK(vkEndCommandBuffer(command_buffer));
@@ -1100,8 +1165,10 @@ void create_sync_objects() {
                                    nullptr,
                                    &vkg.render_finished_semaphores[i]));
 
-        VK_CHECK(vkCreateFence(
-            vkg.device, &fence_info, nullptr, &vkg.in_flight_fences[i]));
+        VK_CHECK(vkCreateFence(vkg.device,
+                               &fence_info,
+                               nullptr,
+                               &vkg.in_flight_fences[i]));
     }
 }
 
@@ -1140,8 +1207,10 @@ void create_descriptor_set_layout() {
     layout_info.bindingCount = 1;
     layout_info.pBindings = &ubo_layout_binding;
 
-    VK_CHECK(vkCreateDescriptorSetLayout(
-        vkg.device, &layout_info, nullptr, &vkg.descriptor_set_layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(vkg.device,
+                                         &layout_info,
+                                         nullptr,
+                                         &vkg.descriptor_set_layout));
 }
 
 void create_uniform_buffers() {
@@ -1209,8 +1278,10 @@ void create_descriptor_pool() {
     pool_info.poolSizeCount = 1;
     pool_info.pPoolSizes = &pool_size;
 
-    VK_CHECK(vkCreateDescriptorPool(
-        vkg.device, &pool_info, nullptr, &vkg.descriptor_pool));
+    VK_CHECK(vkCreateDescriptorPool(vkg.device,
+                                    &pool_info,
+                                    nullptr,
+                                    &vkg.descriptor_pool));
 }
 
 void create_descriptor_sets() {
@@ -1224,8 +1295,9 @@ void create_descriptor_sets() {
     alloc_info.pSetLayouts = layouts.data();
 
     vkg.descriptor_sets.resize(vkg.double_buffered);
-    VK_CHECK(vkAllocateDescriptorSets(
-        vkg.device, &alloc_info, vkg.descriptor_sets.data()));
+    VK_CHECK(vkAllocateDescriptorSets(vkg.device,
+                                      &alloc_info,
+                                      vkg.descriptor_sets.data()));
 
     for (size_t i = 0; i < vkg.double_buffered; ++i) {
         VkDescriptorBufferInfo buffer_info{};
@@ -1265,7 +1337,9 @@ void init() {
     init_instance();
     create_surface();
 #ifdef _DEBUG
-    if (vkg.validation_layer) { init_debug_messenger(); }
+    if (vkg.validation_layer) {
+        init_debug_messenger();
+    }
 #endif
     init_device();
     create_swapchain();
