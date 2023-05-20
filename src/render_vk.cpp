@@ -474,6 +474,30 @@ void init_device() {
     vkGetDeviceQueue(vkg.device, vkg.graphics_family, 0, &vkg.graphics_queue);
 }
 
+VkImageView create_image_view(VkImage image, VkFormat format) {
+    VkImageViewCreateInfo view_info{};
+    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    // view_info.pNext;
+    // view_info.flags;
+    view_info.image = image;
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = format;
+    view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    view_info.subresourceRange.baseMipLevel = 0;
+    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount = 1;
+
+    VkImageView image_view;
+
+    VK_CHECK(vkCreateImageView(vkg.device, &view_info, nullptr, &image_view));
+    return image_view;
+}
+
 void create_swapchain() {
     VkSurfaceCapabilitiesKHR capabilities;
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkg.physical_device,
@@ -584,26 +608,8 @@ void create_swapchain() {
 
     vkg.image_views.resize(image_count);
     for (auto i = 0; i < image_count; ++i) {
-        VkImageViewCreateInfo create_info{};
-        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        // create_info.pNext;
-        // create_info.flags;
-        create_info.image = vkg.images[i];
-        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format = vkg.swapchain_format;
-        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        create_info.subresourceRange.baseMipLevel = 0;
-        create_info.subresourceRange.levelCount = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount = 1;
-        VK_CHECK(vkCreateImageView(vkg.device,
-                                   &create_info,
-                                   nullptr,
-                                   &vkg.image_views[i]));
+        vkg.image_views[i] =
+            create_image_view(vkg.images[i], vkg.swapchain_format);
     }
 }
 
