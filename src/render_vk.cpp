@@ -137,6 +137,7 @@ class VulkanGlobals {
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool command_pool;
     VkImage texture_image;
+    VkImageView texture_image_view;
     VkDeviceMemory texture_image_memory;
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_memory;
@@ -162,6 +163,7 @@ class VulkanGlobals {
         vkFreeMemory(device, index_buffer_memory, nullptr);
         vkDestroyBuffer(device, vertex_buffer, nullptr);
         vkFreeMemory(device, vertex_buffer_memory, nullptr);
+        vkDestroyImageView(device, texture_image_view, nullptr);
         vkDestroyImage(device, texture_image, nullptr);
         vkFreeMemory(device, texture_image_memory, nullptr);
         vkDestroyCommandPool(device, command_pool, nullptr);
@@ -1524,6 +1526,11 @@ void create_texture_image() {
     vkDestroyBuffer(vkg.device, staging_buffer, nullptr);
     vkFreeMemory(vkg.device, staging_buffer_memory, nullptr);
 }
+
+void create_texture_image_view() {
+    vkg.texture_image_view =
+        create_image_view(vkg.texture_image, VK_FORMAT_R8G8B8A8_SRGB);
+}
 } // namespace
 
 namespace graphics {
@@ -1553,6 +1560,7 @@ void init() {
     create_framebuffers();
     create_command_pool();
     create_texture_image();
+    create_texture_image_view();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();
