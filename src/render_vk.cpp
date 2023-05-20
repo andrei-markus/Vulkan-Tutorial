@@ -139,6 +139,7 @@ class VulkanGlobals {
     VkImage texture_image;
     VkImageView texture_image_view;
     VkDeviceMemory texture_image_memory;
+    VkSampler texture_sampler;
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_memory;
     VkBuffer index_buffer;
@@ -163,6 +164,7 @@ class VulkanGlobals {
         vkFreeMemory(device, index_buffer_memory, nullptr);
         vkDestroyBuffer(device, vertex_buffer, nullptr);
         vkFreeMemory(device, vertex_buffer_memory, nullptr);
+        vkDestroySampler(device, texture_sampler, nullptr);
         vkDestroyImageView(device, texture_image_view, nullptr);
         vkDestroyImage(device, texture_image, nullptr);
         vkFreeMemory(device, texture_image_memory, nullptr);
@@ -381,6 +383,11 @@ int32_t physical_device_score(VkPhysicalDevice device) {
             }
         }
     }
+    VkPhysicalDeviceFeatures supported_features;
+    vkGetPhysicalDeviceFeatures(device, &supported_features);
+    if (!(supported_features.samplerAnisotropy == VK_TRUE)) {
+        return -1;
+    }
     if (required_extensions_found < vkg.required_device_extensions.size()) {
         return -1;
     }
@@ -455,6 +462,7 @@ void init_device() {
     queue_create_info.pQueuePriorities = &queue_priorities;
 
     VkPhysicalDeviceFeatures device_features{};
+    device_features.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1531,6 +1539,41 @@ void create_texture_image_view() {
     vkg.texture_image_view =
         create_image_view(vkg.texture_image, VK_FORMAT_R8G8B8A8_SRGB);
 }
+
+void create_texture_sampler() {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(vkg.physical_device, &properties);
+
+    VkSamplerCreateInfo sampler_info{};
+    sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    // sampler_info.pNext;
+    // sampler_info.flags;
+    sampler_info.magFilter = VK_FILTER_LINEAR;
+    sampler_info.minFilter = VK_FILTER_LINEAR;
+    sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.mipLodBias = 0.0f;
+    sampler_info.anisotropyEnable = VK_TRUE;
+    sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    sampler_info.compareEnable = VK_FALSE;
+    sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+    sampler_info.minLod = 0.0f;
+    sampler_info.maxLod = 0.0f;
+    sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    sampler_info.unnormalizedCoordinates = VK_FALSE;
+
+    // Instead of enforcing the availability of anisotropic filtering, it's also
+    // possible to simply not use it by conditionally setting:
+    // samplerInfo.anisotropyEnable = VK_FALSE;
+    // samplerInfo.maxAnisotropy = 1.0f;
+
+    VK_CHECK(vkCreateSampler(vkg.device,
+                             &sampler_info,
+                             nullptr,
+                             &vkg.texture_sampler));
+}
 } // namespace
 
 namespace graphics {
@@ -1561,6 +1604,7 @@ void init() {
     create_command_pool();
     create_texture_image();
     create_texture_image_view();
+    create_texture_sampler();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();
