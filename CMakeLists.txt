@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project("Game_Engine" CXX)
+project("Game_Engine")
 
 add_executable(${PROJECT_NAME})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
@@ -13,7 +13,6 @@ add_compile_definitions(
                     $<$<CONFIG:MinSizeRel>:_RELEASE>
                     $<$<CONFIG:MinSizeRel>:NDEBUG>)
 
-set( ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders)
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 file(GLOB SHADERS ${SHADER_DIR}/*.vert
                   ${SHADER_DIR}/*.tesc
@@ -29,6 +28,14 @@ file(GLOB SHADERS ${SHADER_DIR}/*.vert
                   ${SHADER_DIR}/*.rchit
                   ${SHADER_DIR}/*.rmiss
                   ${SHADER_DIR}/*.rcall)
+
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/textures/)
+set(TEX_DIR ${CMAKE_CURRENT_BINARY_DIR}/textures)
+file(GLOB TEXTURES ${CMAKE_CURRENT_SOURCE_DIR}/textures/*)
+foreach(TEXTURE IN LISTS TEXTURES)
+    get_filename_component(FILENAME ${TEXTURE} NAME)
+    configure_file(${TEXTURE} ${TEX_DIR}/${FILENAME} COPYONLY)
+endForeach()
 
 find_package(Vulkan COMPONENTS glslangValidator)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders/)
@@ -48,4 +55,4 @@ add_subdirectory(src)
 add_subdirectory(third_party)
 
 add_dependencies(${PROJECT_NAME} shaders)
-target_link_libraries(${PROJECT_NAME} sdl2 Vulkan::Vulkan)
+target_link_libraries(${PROJECT_NAME} sdl2 Vulkan::Vulkan stb)
