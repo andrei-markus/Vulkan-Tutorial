@@ -16,6 +16,8 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 #include <vector>
 #include <vulkan/vk_platform.h>
 #include <vulkan/vulkan_core.h>
@@ -100,6 +102,8 @@ class VulkanGlobals {
     VkExtent2D windowExtent{1280, 720};
     const char* app_name = "Vulkan Game";
     const char* engine_name = "Andrei Game Engine";
+    const std::string MODEL_PATH = "models/viking_room.obj";
+    const std::string TEXTURE_PATH = "textures/viking_room.png";
     const std::vector<const char*> required_device_extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     const std::vector<const char*> validation_layers = {
@@ -147,6 +151,8 @@ class VulkanGlobals {
     VkImage depth_image;
     VkDeviceMemory depth_image_memory;
     VkImageView depth_image_view;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_memory;
     VkBuffer index_buffer;
@@ -203,18 +209,6 @@ class VulkanGlobals {
 };
 
 VulkanGlobals vkg{};
-const std::vector<Vertex> vertices = {
-    { {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {  {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {   {0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {  {-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    { {0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {  {0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    { {-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 #ifdef _DEBUG
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -1118,7 +1112,7 @@ void copy_buffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size) {
 }
 
 void create_vertex_buffer() {
-    VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+    VkDeviceSize buffer_size = sizeof(vkg.vertices[0]) * vkg.vertices.size();
 
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
@@ -1137,7 +1131,7 @@ void create_vertex_buffer() {
                          buffer_size,
                          0,
                          &data));
-    std::memcpy(data, vertices.data(), static_cast<size_t>(buffer_size));
+    std::memcpy(data, vkg.vertices.data(), static_cast<size_t>(buffer_size));
     vkUnmapMemory(vkg.device, staging_buffer_memory);
 
     create_buffer(buffer_size,
@@ -1154,7 +1148,7 @@ void create_vertex_buffer() {
 }
 
 void create_index_buffer() {
-    VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+    VkDeviceSize buffer_size = sizeof(vkg.indices[0]) * vkg.indices.size();
 
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
@@ -1168,7 +1162,7 @@ void create_index_buffer() {
 
     void* data;
     vkMapMemory(vkg.device, staging_buffer_memory, 0, buffer_size, 0, &data);
-    std::memcpy(data, indices.data(), static_cast<size_t>(buffer_size));
+    std::memcpy(data, vkg.indices.data(), static_cast<size_t>(buffer_size));
     vkUnmapMemory(vkg.device, staging_buffer_memory);
 
     create_buffer(buffer_size,
@@ -1240,7 +1234,7 @@ void record_command_buffer(VkCommandBuffer command_buffer,
     vkCmdBindIndexBuffer(command_buffer,
                          vkg.index_buffer,
                          0,
-                         VK_INDEX_TYPE_UINT16);
+                         VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(command_buffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1252,7 +1246,7 @@ void record_command_buffer(VkCommandBuffer command_buffer,
                             nullptr);
 
     vkCmdDrawIndexed(command_buffer,
-                     static_cast<uint32_t>(indices.size()),
+                     static_cast<uint32_t>(vkg.indices.size()),
                      1,
                      0,
                      0,
@@ -1612,7 +1606,7 @@ void copy_buffer_to_image(VkBuffer buffer,
 }
 
 void create_texture_image() {
-    auto texture = load_image("textures/texture.jpg");
+    auto texture = load_image(vkg.TEXTURE_PATH);
 
     VkDeviceSize image_size = texture.width * texture.height * 4;
 
@@ -1714,6 +1708,38 @@ void create_depth_resources() {
                                              depth_format,
                                              VK_IMAGE_ASPECT_DEPTH_BIT);
 }
+
+void load_model() {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string err;
+
+    auto result = tinyobj::LoadObj(&attrib,
+                                   &shapes,
+                                   &materials,
+                                   &err,
+                                   vkg.MODEL_PATH.c_str());
+
+    ASSERT(result, "Loading model" + err);
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
+
+            vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
+                          attrib.vertices[3 * index.vertex_index + 1],
+                          attrib.vertices[3 * index.vertex_index + 2]};
+            vertex.tex_coord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
+            vertex.color = {1.0f, 1.0f, 1.0f};
+            vkg.vertices.push_back(vertex);
+            vkg.indices.push_back(vkg.indices.size());
+        }
+    }
+}
+
 } // namespace
 
 namespace graphics {
@@ -1746,6 +1772,7 @@ void init() {
     create_texture_image();
     create_texture_image_view();
     create_texture_sampler();
+    load_model();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();

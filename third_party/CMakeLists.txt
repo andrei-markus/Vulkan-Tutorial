@@ -11,3 +11,5 @@ target_link_libraries(sdl2 INTERFACE SDL2::SDL2main SDL2::SDL2)
 
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE stb)
+add_library(tinyobj INTERFACE)
+target_include_directories(tinyobj INTERFACE tinyobjloader)

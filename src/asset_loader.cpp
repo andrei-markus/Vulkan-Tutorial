@@ -24,7 +24,7 @@ std::vector<std::byte> read_file(const std::string& filename) {
 
 img_data load_image(const std::string& filename) {
     img_data result;
-    result.pixels = reinterpret_cast<std::byte*>(stbi_load(filename.data(),
+    result.pixels = reinterpret_cast<std::byte*>(stbi_load(filename.c_str(),
                                                            &result.width,
                                                            &result.height,
                                                            &result.channels,

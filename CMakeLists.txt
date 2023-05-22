@@ -29,6 +29,14 @@ file(GLOB SHADERS ${SHADER_DIR}/*.vert
                   ${SHADER_DIR}/*.rmiss
                   ${SHADER_DIR}/*.rcall)
 
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/models/)
+set(MODEL_DIR ${CMAKE_CURRENT_BINARY_DIR}/models)
+file(GLOB MODELS ${CMAKE_CURRENT_SOURCE_DIR}/models/*)
+foreach(MODEL IN LISTS MODELS)
+    get_filename_component(FILENAME ${MODEL} NAME)
+    configure_file(${MODEL} ${MODEL_DIR}/${FILENAME} COPYONLY)
+endForeach()
+
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/textures/)
 set(TEX_DIR ${CMAKE_CURRENT_BINARY_DIR}/textures)
 file(GLOB TEXTURES ${CMAKE_CURRENT_SOURCE_DIR}/textures/*)
@@ -55,4 +63,4 @@ add_subdirectory(src)
 add_subdirectory(third_party)
 
 add_dependencies(${PROJECT_NAME} shaders)
-target_link_libraries(${PROJECT_NAME} sdl2 Vulkan::Vulkan stb)
+target_link_libraries(${PROJECT_NAME} sdl2 Vulkan::Vulkan stb tinyobj)
