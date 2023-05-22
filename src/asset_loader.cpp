@@ -1,6 +1,10 @@
+#include "asset_loader.hpp"
+
 #include <cstddef>
 #include <fstream>
 #include <iostream>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include <string>
 #include <vector>
 
@@ -16,4 +20,14 @@ std::vector<std::byte> read_file(const std::string& filename) {
     file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
     file.close();
     return buffer;
+}
+
+img_data load_image(const std::string& filename) {
+    img_data result;
+    result.pixels = reinterpret_cast<std::byte*>(stbi_load(filename.data(),
+                                                           &result.width,
+                                                           &result.height,
+                                                           &result.channels,
+                                                           STBI_rgb_alpha));
+    return result;
 }

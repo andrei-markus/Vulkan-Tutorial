@@ -16,8 +16,6 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 #include <vector>
 #include <vulkan/vk_platform.h>
 #include <vulkan/vulkan_core.h>
@@ -1614,19 +1612,11 @@ void copy_buffer_to_image(VkBuffer buffer,
 }
 
 void create_texture_image() {
-    int tex_width{};
-    int tex_height{};
-    int tex_channels{};
+    auto texture = load_image("textures/texture.jpg");
 
-    stbi_uc* pixels = stbi_load("textures/texture.jpg",
-                                &tex_width,
-                                &tex_height,
-                                &tex_channels,
-                                STBI_rgb_alpha);
+    VkDeviceSize image_size = texture.width * texture.height * 4;
 
-    VkDeviceSize image_size = tex_width * tex_height * 4;
-
-    ASSERT(pixels, "failed to load texture image!");
+    ASSERT(texture.pixels, "failed to load texture image!");
 
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
@@ -1640,11 +1630,11 @@ void create_texture_image() {
 
     void* data;
     vkMapMemory(vkg.device, staging_buffer_memory, 0, image_size, 0, &data);
-    std::memcpy(data, pixels, static_cast<size_t>(image_size));
+    std::memcpy(data, texture.pixels, static_cast<size_t>(image_size));
     vkUnmapMemory(vkg.device, staging_buffer_memory);
 
-    create_image(tex_width,
-                 tex_height,
+    create_image(texture.width,
+                 texture.height,
                  VK_FORMAT_R8G8B8A8_SRGB,
                  VK_IMAGE_TILING_OPTIMAL,
                  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -1658,8 +1648,8 @@ void create_texture_image() {
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(staging_buffer,
                          vkg.texture_image,
-                         static_cast<uint32_t>(tex_width),
-                         static_cast<uint32_t>(tex_height));
+                         static_cast<uint32_t>(texture.width),
+                         static_cast<uint32_t>(texture.height));
     transition_image_layout(vkg.texture_image,
                             VK_FORMAT_R8G8B8A8_SRGB,
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
