@@ -106,5 +106,9 @@ inline const char* vk_result_string(VkResult err) {
         return "UKNOWN Error";
     }
 }
+namespace {
+
+void create_depth_resources();
+}
 
 #endif
