@@ -16,13 +16,13 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <unordered_map>
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #include <vector>
 #include <vulkan/vk_platform.h>
 #include <vulkan/vulkan_core.h>
 
-namespace {
 #define ASSERT(assertion, errMsg)                                              \
     {                                                                          \
         if (!(assertion)) {                                                    \
@@ -86,7 +86,23 @@ struct Vertex {
 
         return attribute_descriptions;
     }
+
+    bool operator==(const Vertex& other) const {
+        return pos == other.pos && color == other.color &&
+               tex_coord == other.tex_coord;
+    }
 };
+namespace std {
+template <> struct hash<Vertex> {
+    size_t operator()(Vertex const& vertex) const {
+        return ((hash<math::vec3>()(vertex.pos) ^
+                 (hash<math::vec3>()(vertex.color) << 1)) >>
+                1) ^
+               (hash<math::vec2>()(vertex.tex_coord) << 1);
+    }
+};
+} // namespace std
+namespace {
 
 struct UniformBufferObject {
     alignas(16) math::mat4 model;
@@ -1723,6 +1739,7 @@ void load_model() {
 
     ASSERT(result, "Loading model" + err);
 
+    std::unordered_map<Vertex, uint32_t> unique_vertices{};
     for (const auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
             Vertex vertex{};
@@ -1735,7 +1752,13 @@ void load_model() {
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
             vertex.color = {1.0f, 1.0f, 1.0f};
             vkg.vertices.push_back(vertex);
-            vkg.indices.push_back(vkg.indices.size());
+
+            if (unique_vertices.count(vertex) == 0) {
+                unique_vertices[vertex] =
+                    static_cast<uint32_t>(vkg.vertices.size());
+                vkg.vertices.push_back(vertex);
+            }
+            vkg.indices.push_back(unique_vertices[vertex]);
         }
     }
 }

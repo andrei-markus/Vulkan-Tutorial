@@ -5,6 +5,10 @@
 #include <numbers>
 
 namespace math {
+// vec2
+bool operator==(const vec2& a, const vec2& b) {
+    return a.x == b.x && a.y == b.y;
+}
 // vec3
 float& vec3::operator[](int idx) {
     assert(idx >= 0 && idx <= 2);
@@ -21,6 +25,9 @@ vec3 operator*(const vec3& a, float b) {
     return vec3(a.x * b, a.y * b, a.z * b);
 }
 vec3 operator*(float a, const vec3& b) { return b * a; }
+bool operator==(const vec3& a, const vec3& b) {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
 
 // vec4
 float& vec4::operator[](int idx) {

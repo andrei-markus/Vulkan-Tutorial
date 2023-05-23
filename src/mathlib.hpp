@@ -1,12 +1,13 @@
 #ifndef MATHLIB_HPP
 #define MATHLIB_HPP
-
+#include <functional>
 namespace math {
 
 struct vec2 {
     float x;
     float y;
 };
+bool operator==(const vec2& a, const vec2& b);
 
 struct vec3 {
     float x;
@@ -19,6 +20,7 @@ struct vec3 {
 vec3 operator-(const vec3& a, const vec3& b);
 vec3 operator*(const vec3& a, float b);
 vec3 operator*(float a, const vec3& b);
+bool operator==(const vec3& a, const vec3& b);
 
 struct vec4 {
     float x;
@@ -61,5 +63,19 @@ mat4 perspesctive(float fov,
 mat4 rotate(const mat4& matrix, float angle, const vec3& vector);
 
 } // namespace math
-
+namespace std {
+template <> struct hash<math::vec2> {
+    size_t operator()(math::vec2 const& vertex) const {
+        return ((hash<float>()(vertex.x) ^ (hash<float>()(vertex.y) << 1)) >>
+                1);
+    }
+};
+template <> struct hash<math::vec3> {
+    size_t operator()(math::vec3 const& vertex) const {
+        return ((hash<float>()(vertex.x) ^ (hash<float>()(vertex.y) << 1)) >>
+                1) ^
+               (hash<float>()(vertex.z) << 1);
+    }
+};
+} // namespace std
 #endif
