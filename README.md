@@ -1,3 +1,2 @@
-# Vulkan Game Engine
-
-Game engine made with vulkan and SDL2
+# Vulkan Tutorial
+Project made following vulkan-tutorial.com
