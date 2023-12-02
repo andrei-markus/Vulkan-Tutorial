@@ -588,7 +588,7 @@ void create_swapchain() {
             std::clamp(static_cast<uint32_t>(width),
                        capabilities.minImageExtent.width,
                        capabilities.maxImageExtent.width);
-        vkg.swapchain_extend.width =
+        vkg.swapchain_extend.height =
             std::clamp(static_cast<uint32_t>(height),
                        capabilities.minImageExtent.height,
                        capabilities.maxImageExtent.height);
