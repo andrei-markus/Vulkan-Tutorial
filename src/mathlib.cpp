@@ -49,13 +49,14 @@ vec4 operator*(float a, const vec4& b) { return b * a; }
 // mat4
 mat4::mat4() {}
 
-mat4::mat4(vec4 v0, vec4 v1, vec4 v2, vec4 v3) : data(v0, v1, v2, v3) {}
+mat4::mat4(vec4 v0, vec4 v1, vec4 v2, vec4 v3) : data{v0, v1, v2, v3} {
+}
 
 mat4::mat4(float i)
-    : data({i, 0.0f, 0.0f, 0.0f},
+    : data{{i, 0.0f, 0.0f, 0.0f},
            {0.0f, i, 0.0f, 0.0f},
            {0.0f, 0.0f, i, 0.0f},
-           {0.0f, 0.0f, 0.0f, i}) {}
+           {0.0f, 0.0f, 0.0f, i}} {}
 
 vec4& mat4::operator[](int idx) {
     assert(idx >= 0 && idx <= 3);
@@ -79,9 +80,9 @@ vec3 normalize(const vec3& vector) {
 }
 
 vec3 cross(const vec3& a, const vec3& b) {
-    return vec3({a.y * b.z - a.z * b.y},
-                {a.z * b.x - a.x * b.z},
-                {a.x * b.y - a.y * b.x});
+    return vec3{a.y * b.z - a.z * b.y,
+                a.z * b.x - a.x * b.z,
+                a.x * b.y - a.y * b.x};
 }
 
 float dot(const vec3& a, const vec3& b) {
