@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project("Game_Engine")
+project("Vulkan_Tutorial")
 
 add_executable(${PROJECT_NAME})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
