@@ -1,8 +1,12 @@
 #include "graphics.hpp"
 
 #include <SDL.h>
+#include <filesystem>
 
 int main(int argc, char* argv[]) {
+    auto path = SDL_GetBasePath();
+    std::filesystem::current_path(path);
+
     bool is_window_minimized = false;
     graphics::init();
 
